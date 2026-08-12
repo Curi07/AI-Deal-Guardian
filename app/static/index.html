@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Deal Guardian</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">AI Deal Guardian</div>
+        <div class="nav-links">
+            <a href="#" id="nav-new-deal" class="active">New Deal</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        
+        <!-- View: New Deal -->
+        <section id="view-new-deal" class="view active">
+            <h1>Create Deal</h1>
+            <p>Paste the client brief below to analyze the deal parameters and risk.</p>
+            
+            <div class="form-group">
+                <label for="deal-brief">Client Brief</label>
+                <textarea id="deal-brief" rows="6" placeholder="Ej: Necesito una landing page..."></textarea>
+            </div>
+            
+            <button id="btn-analyze-deal" class="btn primary">Analyze Deal</button>
+        </section>
+
+        <!-- View: Deal Preflight -->
+        <section id="view-preflight" class="view hidden">
+            <h1>Deal Preflight</h1>
+            
+            <div class="card">
+                <div class="risk-header">
+                    <h2>Risk Analysis</h2>
+                    <span id="preflight-status" class="badge">READY</span>
+                </div>
+                
+                <div class="score-container">
+                    <div class="score-box">
+                        <span class="score-label">RISK SCORE</span>
+                        <span id="risk-score" class="score-value">0/100</span>
+                    </div>
+                    <div class="score-box">
+                        <span class="score-label">CONFIDENCE</span>
+                        <span id="confidence-score" class="score-value">0/100</span>
+                    </div>
+                </div>
+
+                <div id="preflight-details" class="preflight-details">
+                    <h3>Unknowns</h3>
+                    <ul id="list-unknowns"></ul>
+                    
+                    <h3>Blocking Unknowns</h3>
+                    <ul id="list-blocking-unknowns"></ul>
+                    
+                    <h3>Questions to Ask</h3>
+                    <ul id="list-questions"></ul>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="btn-save-deal" class="btn primary">Save Deal</button>
+                <button id="btn-back-new" class="btn secondary">Back</button>
+            </div>
+        </section>
+
+        <!-- View: Deal Memory -->
+        <section id="view-deal-memory" class="view hidden">
+            <div class="header-action">
+                <h1>Deal Memory <span id="memory-deal-id" class="badge text-small"></span></h1>
+                <button id="btn-open-message" class="btn primary">Analyze New Message</button>
+            </div>
+
+            <div class="memory-grid">
+                <!-- Deal Meta -->
+                <div class="card">
+                    <h2>Project</h2>
+                    <p><strong>Title:</strong> <span id="mem-title"></span></p>
+                    <p><strong>Budget:</strong> <span id="mem-budget"></span></p>
+                    <p><strong>Deadline:</strong> <span id="mem-deadline"></span></p>
+                </div>
+
+                <!-- Scope -->
+                <div class="card">
+                    <h2>Scope</h2>
+                    <h3>Included</h3>
+                    <ul id="mem-included"></ul>
+                    
+                    <h3>Excluded</h3>
+                    <ul id="mem-excluded"></ul>
+                </div>
+
+                <!-- Decisions -->
+                <div class="card">
+                    <h2>Decisions & Assumptions</h2>
+                    <ul id="mem-decisions"></ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: Scope Guard & Response -->
+        <section id="view-scope-guard" class="view hidden">
+            <div class="header-action">
+                <h1>Scope Guard & Response</h1>
+                <button id="btn-back-memory" class="btn secondary">Back to Deal Memory</button>
+            </div>
+
+            <div class="diff-card card">
+                <h2>Scope Diff</h2>
+                <div class="diff-meta">
+                    <span id="diff-classification" class="badge"></span>
+                    <span id="diff-commercial" class="badge commercial-badge"></span>
+                </div>
+
+                <div id="diff-content" class="diff-content">
+                    <div class="diff-section added-section">
+                        <h3>Added</h3>
+                        <ul id="diff-added"></ul>
+                    </div>
+                    
+                    <div class="diff-section changed-section">
+                        <h3>Changed</h3>
+                        <ul id="diff-changed"></ul>
+                    </div>
+                    
+                    <div class="diff-section conflicting-section">
+                        <h3>Conflicting</h3>
+                        <ul id="diff-conflicting"></ul>
+                    </div>
+                    
+                    <div class="diff-section unchanged-section">
+                        <h3>Unchanged</h3>
+                        <ul id="diff-unchanged"></ul>
+                    </div>
+                </div>
+
+                <div class="diff-evidence">
+                    <h3>Evidence</h3>
+                    <p id="diff-evidence-text"></p>
+                    <h3>Recommended Action</h3>
+                    <p id="diff-recommended"></p>
+                </div>
+            </div>
+
+            <div class="response-card card mt-4">
+                <h2>Response Intelligence</h2>
+                <div class="intent-meta">
+                    <p><strong>Intent:</strong> <span id="resp-intent"></span></p>
+                    <p><strong>Strategy:</strong> <span id="resp-strategy"></span></p>
+                </div>
+                
+                <div class="form-group mt-2">
+                    <label for="resp-draft">Draft Response <span class="badge text-small">Review before sending</span></label>
+                    <textarea id="resp-draft" rows="6"></textarea>
+                </div>
+                
+                <button id="btn-copy-response" class="btn primary">Copy Response</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: New Message -->
+    <div id="modal-message" class="modal hidden">
+        <div class="modal-content card">
+            <h2>New Client Message</h2>
+            
+            <div class="form-group">
+                <label for="msg-content">Message</label>
+                <textarea id="msg-content" rows="4"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="msg-objective">Objective</label>
+                <select id="msg-objective">
+                    <option value="defend_price">Defend price</option>
+                    <option value="negotiate_scope">Negotiate scope</option>
+                    <option value="ask_clarification">Ask clarification</option>
+                    <option value="accept">Accept</option>
+                    <option value="reject">Reject</option>
+                    <option value="preserve_relationship">Preserve relationship</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="msg-tone">Tone</label>
+                <select id="msg-tone">
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="firm">Firm</option>
+                    <option value="concise">Concise</option>
+                    <option value="neutral">Neutral</option>
+                </select>
+            </div>
+            
+            <div class="actions">
+                <button id="btn-analyze-msg" class="btn primary">Analyze Message</button>
+                <button id="btn-close-modal" class="btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Analyzing...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+from enum import Enum
+from typing import List, Optional, Any
+from pydantic import BaseModel, Field
+
+# --- Enums ---
+class SourceType(str, Enum):
+    CLIENT = "client"
+    FREELANCER = "freelancer"
+    AI = "ai"
+    AGREEMENT = "agreement"
+
+class CertaintyType(str, Enum):
+    EXPLICIT = "explicit"
+    INFERRED = "inferred"
+    UNCERTAIN = "uncertain"
+    CONFIRMED = "confirmed"
+
+class PricingModel(str, Enum):
+    FIXED = "fixed"
+    HOURLY = "hourly"
+    MILESTONE = "milestone"
+    MONTHLY = "monthly"
+    UNKNOWN = "unknown"
+
+class DeadlineType(str, Enum):
+    EXPLICIT = "explicit"
+    ESTIMATED = "estimated"
+    FLEXIBLE = "flexible"
+    UNKNOWN = "unknown"
+
+class Severity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class PreflightStatus(str, Enum):
+    READY = "ready"
+    NEEDS_CLARIFICATION = "needs_clarification"
+    DO_NOT_QUOTE = "do_not_quote"
+
+class RiskCategory(str, Enum):
+    SCOPE = "scope"
+    TIMELINE = "timeline"
+    BUDGET = "budget"
+    DEPENDENCY = "dependency"
+    TECHNICAL = "technical"
+    CLIENT_CLARITY = "client_clarity"
+    REQUIREMENTS = "requirements"
+    EXTERNAL = "external"
+    COMMUNICATION = "communication"
+
+class QuestionPriority(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+class DependencyStatus(str, Enum):
+    AVAILABLE = "available"
+    PENDING = "pending"
+    UNKNOWN = "unknown"
+
+# --- Models ---
+class Client(BaseModel):
+    name: Optional[str] = None
+    company: Optional[str] = None
+    industry: Optional[str] = None
+    contact: Optional[str] = None
+
+class Project(BaseModel):
+    title: str = ""
+    type: str = ""
+    description: str = ""
+
+class Commercial(BaseModel):
+    budget: Optional[float] = None
+    currency: Optional[str] = None
+    pricing_model: Optional[PricingModel] = None
+
+class Timeline(BaseModel):
+    deadline: Optional[str] = None
+    deadline_type: Optional[DeadlineType] = None
+    milestones: List[str] = Field(default_factory=list)
+
+class Scope(BaseModel):
+    deliverables: List[str] = Field(default_factory=list)
+    exclusions: List[str] = Field(default_factory=list)
+    revisions: Optional[int] = None
+    assumptions: List[str] = Field(default_factory=list)
+
+class Requirement(BaseModel):
+    id: str
+    description: str
+    source: SourceType
+    certainty: CertaintyType
+
+class Dependency(BaseModel):
+    description: str
+    status: DependencyStatus = DependencyStatus.UNKNOWN
+    owner: str = "unknown"
+
+class Unknown(BaseModel):
+    description: str
+    severity: Severity
+    blocks_quote: bool
+
+class Risk(BaseModel):
+    description: str
+    category: RiskCategory
+    severity: Severity
+    evidence: List[str] = Field(default_factory=list)
+
+class Question(BaseModel):
+    id: str
+    question: str
+    reason: str
+    priority: QuestionPriority
+    blocks_quote: bool
+
+class Decision(BaseModel):
+    description: str
+    source: SourceType
+    timestamp: str
+    status: str
+
+class Message(BaseModel):
+    id: str
+    timestamp: str
+    sender: str
+    content: str
+    analysis: Optional[Any] = None
+
+class Preflight(BaseModel):
+    status: PreflightStatus = PreflightStatus.NEEDS_CLARIFICATION
+    risk_score: int = 0
+    confidence: float = 0.0
+    blocking_unknowns: int = 0
+    generated_at: Optional[str] = None
+
+class Deal(BaseModel):
+    id: Optional[str] = None
+    client: Client = Field(default_factory=Client)
+    project: Project = Field(default_factory=Project)
+    commercial: Commercial = Field(default_factory=Commercial)
+    timeline: Timeline = Field(default_factory=Timeline)
+    scope: Scope = Field(default_factory=Scope)
+    requirements: List[Requirement] = Field(default_factory=list)
+    dependencies: List[Dependency] = Field(default_factory=list)
+    unknowns: List[Unknown] = Field(default_factory=list)
+    risks: List[Risk] = Field(default_factory=list)
+    questions: List[Question] = Field(default_factory=list)
+    decisions: List[Decision] = Field(default_factory=list)
+    messages: List[Message] = Field(default_factory=list)
+    preflight: Preflight = Field(default_factory=Preflight)

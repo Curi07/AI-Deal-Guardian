@@ -1,0 +1,273 @@
+:root {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    
+    --risk-low: #10b981;
+    --risk-med: #f59e0b;
+    --risk-high: #ef4444;
+    
+    --diff-added: #dcfce7;
+    --diff-added-text: #166534;
+    --diff-changed: #fef9c3;
+    --diff-changed-text: #854d0e;
+    --diff-conflict: #fee2e2;
+    --diff-conflict-text: #991b1b;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    line-height: 1.5;
+}
+
+h1, h2, h3 {
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+}
+
+h1 { font-size: 1.5rem; font-weight: 600; }
+h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1rem; }
+h3 { font-size: 1rem; font-weight: 600; margin-top: 1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+}
+.logo {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--primary);
+}
+.nav-links a {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.nav-links a.active {
+    color: var(--primary);
+}
+
+.container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.view {
+    display: none;
+}
+.view.active {
+    display: block;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+textarea, select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+    transition: background-color 0.2s;
+}
+.btn.primary {
+    background-color: var(--primary);
+    color: white;
+}
+.btn.primary:hover {
+    background-color: var(--primary-hover);
+}
+.btn.secondary {
+    background-color: white;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+}
+.btn.secondary:hover {
+    background-color: var(--bg-main);
+}
+
+.actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.header-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background-color: var(--border);
+    text-transform: uppercase;
+}
+.badge.text-small {
+    font-size: 0.65rem;
+    background: transparent;
+    border: 1px solid var(--border);
+}
+
+/* Preflight Specifics */
+.risk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.score-container {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.score-box {
+    display: flex;
+    flex-direction: column;
+}
+.score-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.score-value {
+    font-size: 2rem;
+    font-weight: 700;
+}
+.risk-low { color: var(--risk-low); }
+.risk-med { color: var(--risk-med); }
+.risk-high { color: var(--risk-high); }
+
+.preflight-details ul, .memory-grid ul {
+    list-style-position: inside;
+    margin-bottom: 1rem;
+}
+.preflight-details li, .memory-grid li {
+    margin-bottom: 0.25rem;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-content {
+    width: 100%;
+    max-width: 500px;
+}
+
+/* Loading */
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+.spinner {
+    width: 40px; height: 40px;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* Scope Guard */
+.diff-meta {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+.commercial-badge.high { background-color: var(--risk-high); color: white; }
+.commercial-badge.medium { background-color: var(--risk-med); color: white; }
+.commercial-badge.low { background-color: var(--risk-low); color: white; }
+
+.diff-section {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border-radius: 4px;
+}
+.diff-section ul { list-style: none; }
+.diff-section li { margin-bottom: 0.25rem; }
+
+.added-section { background-color: var(--diff-added); color: var(--diff-added-text); }
+.added-section h3 { color: var(--diff-added-text); }
+
+.changed-section { background-color: var(--diff-changed); color: var(--diff-changed-text); }
+.changed-section h3 { color: var(--diff-changed-text); }
+
+.conflicting-section { background-color: var(--diff-conflict); color: var(--diff-conflict-text); }
+.conflicting-section h3 { color: var(--diff-conflict-text); }
+
+.unchanged-section { border: 1px solid var(--border); }
+
+.diff-evidence p { font-size: 0.875rem; margin-bottom: 1rem; }
+.mt-4 { margin-top: 1.5rem; }
+.mt-2 { margin-top: 0.5rem; }

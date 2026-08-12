@@ -1,0 +1,14 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+.pytest_cache
+venv
+venv_v1
+venv_v2
+venv_v312
+.env
+tests
+data
+test_deals.db
+deals.db

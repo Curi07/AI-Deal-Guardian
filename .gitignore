@@ -1,0 +1,68 @@
+# 1. Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 2. Virtual environments
+venv/
+.venv/
+env/
+.env/
+venv_*/
+env_*/
+
+# 3. Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*
+*secret*
+
+# 4. SQLite / local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# 5. Pytest / testing artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+
+# 6. IDE / editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# 7. Build / packaging artifacts
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+.eggs/
+
+# 8. Docker artifacts
+docker-compose.override.yml
+.docker-data/
+
+# 9. Logs
+*.log
+logs/
+
+# 10. Temporary files
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# 11. OS artifacts
+Thumbs.db
+Desktop.ini
