@@ -50,7 +50,34 @@ class MockLLMProvider(LLMProvider):
 
     def generate_structured(self, system_prompt: str, user_prompt: str, response_model: Type[T]) -> T:
         if isinstance(self.mock_response, list):
-            data = self.mock_response.pop(0)
+            data = self.mock_response.pop(0) if self.mock_response else {}
         else:
-            data = self.mock_response
+            data = self.mock_response or {}
+            
+        model_name = response_model.__name__
+        
+        if model_name == "PartialMessageAnalysis":
+            if "intent" not in data:
+                data["intent"] = {
+                    "primary": "new_requirement",
+                    "confidence": 0.90
+                }
+            if "deal_context" not in data:
+                data["deal_context"] = {}
+                
+        elif model_name == "Stage2Result":
+            if "strategy" not in data:
+                data["strategy"] = {
+                    "objective": "negotiate_scope",
+                    "recommended_action": "Negotiate scope additions.",
+                    "reasoning": ["Client requested new requirement."],
+                    "key_points": ["Cost impact", "Timeline impact"]
+                }
+            if "response" not in data:
+                data["response"] = {
+                    "draft": "We can add this, let's discuss the cost.",
+                    "tone": "professional",
+                    "requires_review": True
+                }
+                
         return response_model(**data)
