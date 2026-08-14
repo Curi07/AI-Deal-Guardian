@@ -4,11 +4,23 @@ from pydantic import BaseModel
 from app.schemas.deal import Deal
 from app.schemas.analysis import ResponseIntelligence, ScopeDiff
 from app.services.extraction import AnalyzeRequest, ExtractionService
-from app.llm.provider import OpenAIProvider
+from app.llm.provider import LLMProvider, OpenAIProvider, MockLLMProvider, GeminiProvider
 from app.db.database import DealRepository
+from app.config import settings
 
 router = APIRouter()
 repo = DealRepository()
+
+def get_llm_provider() -> LLMProvider:
+    provider_type = settings.llm_provider.lower()
+    if provider_type == "mock":
+        return MockLLMProvider({})
+    elif provider_type == "openai":
+        return OpenAIProvider()
+    elif provider_type == "gemini":
+        return GeminiProvider()
+    else:
+        raise ValueError(f"Unsupported LLM provider: {provider_type}")
 
 class MessagePayload(BaseModel):
     sender: str
@@ -19,7 +31,7 @@ class MessagePayload(BaseModel):
 @router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_deal(request: AnalyzeRequest):
     try:
-        provider = OpenAIProvider()
+        provider = get_llm_provider()
         service = ExtractionService(provider)
         deal = service.analyze_deal(request)
         
@@ -65,7 +77,7 @@ async def analyze_scope(deal_id: str, payload: MessagePayload):
         raise HTTPException(status_code=404, detail="Deal not found")
     
     try:
-        provider = OpenAIProvider()
+        provider = get_llm_provider()
         service = ExtractionService(provider)
         scope_diff = service.analyze_scope_guard(deal, payload.content)
         return scope_diff
@@ -82,7 +94,7 @@ async def analyze_message(deal_id: str, payload: MessagePayload):
         raise HTTPException(status_code=400, detail="objective is required for analysis")
     
     try:
-        provider = OpenAIProvider()
+        provider = get_llm_provider()
         service = ExtractionService(provider)
         analysis = service.analyze_contextual_message(
             deal=deal, 
