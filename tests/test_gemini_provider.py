@@ -21,7 +21,7 @@ def test_gemini_provider_success(mock_client_class):
     mock_client.models.generate_content.return_value = mock_response
 
     # Initialize provider
-    provider = GeminiProvider(api_key="test_key", model="gemini-1.5-flash")
+    provider = GeminiProvider(api_key="test_key", model="gemini-3.5-flash")
     
     # Execute
     result = provider.generate_structured(
@@ -39,7 +39,7 @@ def test_gemini_provider_success(mock_client_class):
     mock_client.models.generate_content.assert_called_once()
     
     call_args = mock_client.models.generate_content.call_args
-    assert call_args.kwargs["model"] == "gemini-1.5-flash"
+    assert call_args.kwargs["model"] == "gemini-3.5-flash"
     assert call_args.kwargs["contents"] == "Say hello"
     assert call_args.kwargs["config"].response_mime_type == "application/json"
     assert call_args.kwargs["config"].system_instruction == "You are a helpful assistant"
@@ -87,7 +87,7 @@ def test_gemini_provider_generate_deal(mock_client_class):
     mock_response.text = json.dumps(deal_json)
     mock_client.models.generate_content.return_value = mock_response
 
-    provider = GeminiProvider(api_key="test_key", model="gemini-1.5-flash")
+    provider = GeminiProvider(api_key="test_key", model="gemini-3.5-flash")
     
     result = provider.generate_structured(
         system_prompt="system",
@@ -120,7 +120,7 @@ def test_gemini_provider_generate_scopediff(mock_client_class):
     mock_response.text = json.dumps(scopediff_json)
     mock_client.models.generate_content.return_value = mock_response
 
-    provider = GeminiProvider(api_key="test_key", model="gemini-1.5-flash")
+    provider = GeminiProvider(api_key="test_key", model="gemini-3.5-flash")
     
     result = provider.generate_structured(
         system_prompt="system",
