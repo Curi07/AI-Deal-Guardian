@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout PR merge ref
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
@@ -27,45 +27,53 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Codex review
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: pytest -q 2>&1 | tee /tmp/pytest.txt
+
+      - name: Run Groq review
         id: review
-        uses: openai/codex-action@v1
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          permission-profile: ":read-only"
-          safety-strategy: drop-sudo
-          prompt: |
-            Review PR #${{ github.event.pull_request.number }} in Curi07/AI-Deal-Guardian.
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git diff "origin/${{ github.event.pull_request.base.ref }}...HEAD" > /tmp/pr.diff
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          prompt=f'''Review this pull request for AI-Deal-Guardian as a senior engineer.
+Identify correctness bugs, regressions, security issues, missing tests, and violations of the issue scope.
+Prioritize actionable findings. If there are no blocking concerns, say APPROVED WITH NO BLOCKERS.
+Do not propose changes to production secrets or deployment credentials.
 
-            PR TITLE:
-            ${{ github.event.pull_request.title }}
+PR TITLE:
+{os.environ['PR_TITLE']}
 
-            PR BODY:
-            ${{ github.event.pull_request.body }}
+PR BODY:
+{os.environ.get('PR_BODY','')}
 
-            Review ONLY the changes introduced by this PR.
-            Compare the PR with the base branch using git diff.
+DIFF:
+{Path('/tmp/pr.diff').read_text()[:60000]}
 
-            Check:
-            - correctness and regressions
-            - business-logic consistency
-            - API behavior
-            - security issues
-            - test coverage
-            - whether the implementation actually satisfies the Issue
-            - whether the full pytest suite passes
-
-            Do not modify files, commit, push, merge, or deploy.
-            Return a concise review with:
-            1. VERDICT: APPROVE, REQUEST_CHANGES, or NEEDS_HUMAN_REVIEW
-            2. Findings ordered by severity
-            3. Test result
-            4. Any specific file/line that needs attention
+TEST OUTPUT:
+{Path('/tmp/pytest.txt').read_text()[-30000:]}
+'''
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a strict senior code reviewer. Be concise and concrete.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':10000}).encode()
+          req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=180) as r: review=json.load(r)['choices'][0]['message']['content']
+          Path('/tmp/review.md').write_text(review,encoding='utf-8')
+          print(review)
 
       - name: Post review result
         env:
           GH_TOKEN: ${{ github.token }}
-          REVIEW: ${{ steps.review.outputs.final-message }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment "${PR_NUMBER}" --body "## AI Deal Review\n\n${REVIEW}"
+          if [ "${{ steps.tests.outcome }}" = "failure" ]; then
+            printf '## AI Deal Review\n\n❌ `pytest -q` failed.\n\n' > /tmp/comment.md
+          else
+            printf '## AI Deal Review\n\n✅ `pytest -q` passed.\n\n' > /tmp/comment.md
+          fi
+          cat /tmp/review.md >> /tmp/comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comment.md
