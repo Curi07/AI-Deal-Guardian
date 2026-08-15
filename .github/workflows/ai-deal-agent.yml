@@ -1,0 +1,111 @@
+name: AI Deal Agent
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  implement-issue:
+    # Only trusted repository-owner issues can start the coding agent.
+    if: github.event.issue.user.login == 'Curi07'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install project dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create working branch
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "AI Deal Agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "agent/issue-${ISSUE_NUMBER}"
+
+      - name: Run Codex
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+          model: gpt-5.6
+          prompt: |
+            You are the implementation agent for the repository Curi07/AI-Deal-Guardian.
+
+            Work ONLY on the GitHub Issue provided below.
+
+            ISSUE #${{ github.event.issue.number }}
+            TITLE:
+            ${{ github.event.issue.title }}
+
+            BODY:
+            ${{ github.event.issue.body }}
+
+            Rules:
+            1. Inspect the existing repository before changing anything.
+            2. Implement the issue completely when it is clear and actionable.
+            3. Preserve the existing architecture unless the issue requires a change.
+            4. Do not change secrets, deployment credentials, or production configuration.
+            5. Do not merge anything into main.
+            6. Do not commit or push. The workflow handles that after you finish.
+            7. Add or update tests for the behavior you change.
+            8. Run the relevant tests and then the full pytest suite when practical.
+            9. If the issue is already implemented, make no changes.
+            10. If the issue is ambiguous or unsafe to implement, make no changes and explain why.
+            11. Do not modify this workflow file.
+
+            At the end, summarize the implementation and test results. Leave all intended changes in the working tree.
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push implementation
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git add -A
+          git commit -m "feat: implement issue #${ISSUE_NUMBER}"
+          git push --set-upstream origin "agent/issue-${ISSUE_NUMBER}"
+
+      - name: Open pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "agent/issue-${ISSUE_NUMBER}" \
+            --title "feat: ${ISSUE_TITLE}" \
+            --body "## Automated implementation\n\nCloses #${ISSUE_NUMBER}\n\nImplemented by the AI Deal Agent.\n\n### Validation\n- Full pytest suite executed by the agent.\n- Review this PR before merging.\n\n**This workflow does not merge to main or deploy to the VPS.**"
+
+      - name: Comment when no implementation was needed
+        if: steps.changes.outputs.changed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue comment "${ISSUE_NUMBER}" --body "AI Deal Agent reviewed this issue and made no code changes because it is already implemented or is not sufficiently actionable. No PR was created."
