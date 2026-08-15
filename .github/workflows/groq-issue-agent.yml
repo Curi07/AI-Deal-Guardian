@@ -3,8 +3,6 @@ name: Groq Issue Agent
 on:
   issues:
     types: [opened, edited]
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: write
@@ -15,17 +13,11 @@ jobs:
   implement:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Build repository snapshot
+      - name: Snapshot issue and repository
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
@@ -33,98 +25,43 @@ jobs:
           python - <<'PY'
           import os
           from pathlib import Path
-          excluded = {'.git', '.venv', 'venv', '__pycache__', '.pytest_cache', 'node_modules'}
-          exts = {'.py', '.html', '.css', '.js', '.json', '.yml', '.yaml', '.md', '.txt', '.toml', '.ini'}
-          chunks = []
+          excluded={'.git','.venv','venv','__pycache__','.pytest_cache','node_modules'}
+          exts={'.py','.html','.css','.js','.json','.yml','.yaml','.md','.txt','.toml','.ini'}
+          chunks=[]
           for p in sorted(Path('.').rglob('*')):
-              if not p.is_file() or any(part in excluded for part in p.parts):
-                  continue
-              if p.stat().st_size > 120_000 or p.suffix.lower() not in exts:
-                  continue
-              try:
-                  text = p.read_text(encoding='utf-8')
-              except Exception:
-                  continue
-              chunks.append(f'===== FILE: {p} =====\n{text}\n')
-          Path('/tmp/repo_snapshot.txt').write_text('\n'.join(chunks), encoding='utf-8')
-          Path('/tmp/issue.txt').write_text(f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}", encoding='utf-8')
+              if p.is_file() and not any(x in excluded for x in p.parts) and p.stat().st_size <= 120000 and p.suffix.lower() in exts:
+                  try: text=p.read_text(encoding='utf-8')
+                  except Exception: continue
+                  chunks.append(f'===== FILE: {p} =====\n{text}\n')
+          Path('/tmp/repo_snapshot.txt').write_text('\n'.join(chunks),encoding='utf-8')
+          Path('/tmp/issue.txt').write_text(f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}",encoding='utf-8')
           PY
-
-      - name: Ask Groq for implementation patch
+      - name: Ask Groq for patch
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           python - <<'PY'
-          import json, os, urllib.request
+          import json,os,urllib.request
           from pathlib import Path
-          issue = Path('/tmp/issue.txt').read_text(encoding='utf-8')
-          repo = Path('/tmp/repo_snapshot.txt').read_text(encoding='utf-8')
-          prompt = f'''You are the coding agent for AI-Deal-Guardian.
-Implement the GitHub Issue below using only the supplied repository snapshot.
-Return ONLY a valid unified git diff suitable for git apply, with no markdown fences.
-If unclear, unsafe, unrelated, or requiring secrets/production deployment, return exactly NO_PATCH.
-Do not modify workflows, Docker deployment configuration, secrets, credentials, or production infrastructure.
-Keep the change focused. Add or update tests when appropriate. Do not remove existing tests.
+          issue=Path('/tmp/issue.txt').read_text(); repo=Path('/tmp/repo_snapshot.txt').read_text()
+          prompt=f'''Implement this GitHub Issue in AI-Deal-Guardian using only the supplied repository snapshot.
+Return ONLY a unified git diff suitable for git apply, with no markdown fences. Return NO_PATCH if unsafe, unclear, unrelated, or requiring production/secrets changes.
+Do not modify workflows, deployment infrastructure, credentials, or secrets. Keep the change focused and preserve tests.
 
-ISSUE:
-{issue}
-
-REPOSITORY:
-{repo}
-'''
-          data = json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise software engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode('utf-8')
-          req = urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
-          with urllib.request.urlopen(req, timeout=180) as r:
-              out = json.load(r)['choices'][0]['message']['content'].strip()
-          Path('/tmp/patch.diff').write_text(out, encoding='utf-8')
-          print(out[:4000])
+ISSUE:\n{issue}\n\nREPOSITORY:\n{repo}'''
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode()
+          req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=180) as r: out=json.load(r)['choices'][0]['message']['content'].strip()
+          Path('/tmp/patch.diff').write_text(out,encoding='utf-8')
           PY
-
       - name: Apply patch
         run: |
-          if grep -qx 'NO_PATCH' /tmp/patch.diff; then echo 'Groq declined to implement this issue.'; exit 1; fi
+          test "$(cat /tmp/patch.diff)" != "NO_PATCH"
           git apply --check /tmp/patch.diff
           git apply /tmp/patch.diff
           git diff --check
-
       - name: Run tests
-        id: tests
-        continue-on-error: true
         run: pytest -q
-
-      - name: Ask Groq to fix failing tests
-        if: steps.tests.outcome == 'failure'
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          pytest -q 2>&1 | tee /tmp/pytest.txt || true
-          git diff > /tmp/current.diff
-          python - <<'PY'
-          import json, os, urllib.request
-          from pathlib import Path
-          prompt = f'''Fix the failing tests for AI-Deal-Guardian.
-Return ONLY a unified git diff, or NO_PATCH.
-Do not modify workflows, secrets, deployment infrastructure, or unrelated code.
-
-Original issue:
-{Path('/tmp/issue.txt').read_text(encoding='utf-8')}
-
-Current diff:
-{Path('/tmp/current.diff').read_text(encoding='utf-8')}
-
-Test output:
-{Path('/tmp/pytest.txt').read_text(encoding='utf-8')[-30000:]}
-'''
-          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise debugging engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':30000}).encode('utf-8')
-          req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
-          with urllib.request.urlopen(req,timeout=180) as r: out=json.load(r)['choices'][0]['message']['content'].strip()
-          Path('/tmp/fix.diff').write_text(out,encoding='utf-8')
-          PY
-          if ! grep -qx 'NO_PATCH' /tmp/fix.diff; then git apply --check /tmp/fix.diff && git apply /tmp/fix.diff; fi
-
-      - name: Verify tests
-        run: pytest -q
-
       - name: Create branch and PR
         env:
           GH_TOKEN: ${{ github.token }}
@@ -138,4 +75,4 @@ Test output:
           git add -A
           git commit -m "feat: implement issue #${ISSUE_NUMBER}"
           git push --set-upstream origin "$branch"
-          gh pr create --base main --head "$branch" --title "feat: ${ISSUE_TITLE}" --body "## Automated implementation\n\nImplements #${ISSUE_NUMBER}.\n\n### Validation\n- pytest -q passed\n- Changes generated by Groq\n\nPlease review before merging.\n\nCloses #${ISSUE_NUMBER}"
+          gh pr create --base main --head "$branch" --title "feat: ${ISSUE_TITLE}" --body "Implements #${ISSUE_NUMBER}. Automated Groq implementation; pytest passed. Please review before merging."
