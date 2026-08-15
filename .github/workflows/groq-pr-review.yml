@@ -12,9 +12,6 @@ permissions:
 
 jobs:
   review:
-    # Repository pushes are trusted. For pull requests, only run when the head is
-    # in this repository so GROQ_API_KEY is never exposed to fork PRs.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -37,6 +34,8 @@ jobs:
         run: python -m pytest -q 2>&1 | tee /tmp/pytest.txt
 
       - name: Review with Groq
+        id: groq_review
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PR_TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
@@ -72,7 +71,7 @@ TEST OUTPUT:
           print(review)
 
       - name: Comment review on PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.groq_review.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
