@@ -1,6 +1,8 @@
 name: Groq PR Review
 
 on:
+  push:
+    branches: [main, fix/p0-stability]
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -10,32 +12,43 @@ permissions:
 
 jobs:
   review:
-    # Run for PRs originating in this repository. Do not expose GROQ_API_KEY to fork PRs.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Repository pushes are trusted. For pull requests, only run when the head is
+    # in this repository so GROQ_API_KEY is never exposed to fork PRs.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
 
       - name: Run tests
         id: tests
         continue-on-error: true
-        run: pytest -q 2>&1 | tee /tmp/pytest.txt
+        run: python -m pytest -q 2>&1 | tee /tmp/pytest.txt
 
       - name: Review with Groq
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: |
-          git diff "origin/${{ github.event.pull_request.base.ref }}...HEAD" > /tmp/pr.diff
+          git fetch origin "${BASE_REF}" --depth=1
+          git diff "origin/${BASE_REF}...HEAD" > /tmp/pr.diff
           python - <<'PY'
           import json, os, urllib.request
           from pathlib import Path
-          prompt=f'''Review this pull request for AI-Deal-Guardian as a senior engineer.
+          prompt=f'''Review this pull request or repository change for AI-Deal-Guardian as a senior engineer.
 Identify correctness bugs, regressions, security issues, missing tests, and violations of the issue scope.
 Prioritize actionable findings. If there are no blocking concerns, say APPROVED WITH NO BLOCKERS.
 Do not propose changes to production secrets or deployment credentials.
@@ -59,6 +72,7 @@ TEST OUTPUT:
           print(review)
 
       - name: Comment review on PR
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
