@@ -45,6 +45,34 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             raise ValueError(f"Failed to validate model {response_model.__name__} from LLM output: {response_text}") from e
 
+def _sanitize_gemini_schema(schema: Dict[str, Any], defs: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Recursively sanitize Pydantic JSON schema to be compatible with Gemini."""
+    if defs is None:
+        defs = schema.get("$defs", {})
+
+    if not isinstance(schema, dict):
+        if isinstance(schema, list):
+            return [_sanitize_gemini_schema(item, defs) for item in schema]
+        return schema
+
+    sanitized = {}
+    
+    if "$ref" in schema:
+        ref_key = schema["$ref"].split("/")[-1]
+        if ref_key in defs:
+            resolved = _sanitize_gemini_schema(defs[ref_key], defs)
+            for k, v in schema.items():
+                if k not in ["$ref", "default", "title"]:
+                    resolved[k] = _sanitize_gemini_schema(v, defs)
+            return resolved
+            
+    for k, v in schema.items():
+        if k in ["default", "$defs", "title"]:
+            continue
+        sanitized[k] = _sanitize_gemini_schema(v, defs)
+        
+    return sanitized
+
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str = None, model: str = None):
         self.api_key = api_key or settings.gemini_api_key
@@ -54,7 +82,8 @@ class GeminiProvider(LLMProvider):
         self.client = genai.Client(api_key=self.api_key)
 
     def generate_structured(self, system_prompt: str, user_prompt: str, response_model: Type[T]) -> T:
-        schema = response_model.model_json_schema()
+        raw_schema = response_model.model_json_schema()
+        schema = _sanitize_gemini_schema(raw_schema)
         
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
