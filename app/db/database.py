@@ -85,7 +85,9 @@ class DealRepository:
                 # Extract summary info safely
                 project = data.get("project", {})
                 title = project.get("title", "Untitled Deal")
-                client = project.get("client_name", "Unknown")
+
+                client = data.get("client", {})
+                client_name = client.get("name") or client.get("company") or "Unknown"
                 
                 commercial = data.get("commercial", {})
                 budget = commercial.get("budget", 0)
@@ -100,7 +102,7 @@ class DealRepository:
                 deals.append({
                     "id": row["id"],
                     "title": title,
-                    "client": client,
+                    "client": client_name,
                     "budget": budget,
                     "currency": currency,
                     "deadline": deadline,

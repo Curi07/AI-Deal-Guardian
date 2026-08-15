@@ -76,3 +76,21 @@ def test_get_deal_endpoint_mock():
     retrieved.id = deal_id
     assert retrieved.id == deal_id
 
+def test_list_deals_uses_structured_client():
+    repo = DealRepository()
+    deal = Deal()
+    deal.project.title = "Client Portal"
+    deal.client.name = "Jane Doe"
+    deal.client.company = "Acme Studio"
+    deal.commercial.budget = 1500
+    deal.commercial.currency = "USD"
+
+    repo.create_deal(deal)
+
+    deals = repo.list_deals()
+
+    assert len(deals) == 1
+    assert deals[0]["title"] == "Client Portal"
+    assert deals[0]["client"] == "Jane Doe"
+    assert deals[0]["budget"] == 1500
+    assert deals[0]["currency"] == "USD"
