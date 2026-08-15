@@ -22,50 +22,98 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install project dependencies
         run: |
-          python3 -m pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Codex review
+      - name: Run full test suite
+        run: pytest -q
+
+      - name: Build review input
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --no-tags origin "$PR_BASE_REF" "+refs/pull/$PR_NUMBER/head"
+          git diff "origin/$PR_BASE_REF...HEAD" > /tmp/pr.diff
+
+      - name: Run AI review with Groq Responses API
         id: review
-        uses: openai/codex-action@v1
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          permission-profile: ":read-only"
-          safety-strategy: drop-sudo
-          prompt: |
-            Review PR #${{ github.event.pull_request.number }} in Curi07/AI-Deal-Guardian.
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
 
-            PR TITLE:
-            ${{ github.event.pull_request.title }}
+          prompt = f'''Review this pull request for AI-Deal-Guardian as a senior engineer.
+          Review ONLY the changes introduced by this PR.
+          Check correctness, regressions, business-logic consistency, API behavior,
+          security issues, test coverage, and whether the implementation satisfies
+          the issue scope.
 
-            PR BODY:
-            ${{ github.event.pull_request.body }}
+          The full pytest suite has already passed in CI.
+          Prioritize actionable findings and identify severity.
+          If there are no blocking concerns, say APPROVED WITH NO BLOCKERS.
 
-            Review ONLY the changes introduced by this PR.
-            Compare the PR with the base branch using git diff.
+          PR TITLE:
+          {os.environ['PR_TITLE']}
 
-            Check:
-            - correctness and regressions
-            - business-logic consistency
-            - API behavior
-            - security issues
-            - test coverage
-            - whether the implementation actually satisfies the Issue
-            - whether the full pytest suite passes
+          PR BODY:
+          {os.environ.get('PR_BODY', '')}
 
-            Do not modify files, commit, push, merge, or deploy.
-            Return a concise review with:
-            1. VERDICT: APPROVE, REQUEST_CHANGES, or NEEDS_HUMAN_REVIEW
-            2. Findings ordered by severity
-            3. Test result
-            4. Any specific file/line that needs attention
+          DIFF:
+          {Path('/tmp/pr.diff').read_text()[:60000]}
+          '''
+
+          payload = json.dumps({
+              'model': 'openai/gpt-oss-120b',
+              'input': prompt,
+              'temperature': 0,
+              'max_output_tokens': 10000,
+          }).encode()
+
+          req = urllib.request.Request(
+              'https://api.groq.com/openai/v1/responses',
+              data=payload,
+              headers={
+                  'Authorization': f"Bearer {os.environ['GROQ_API_KEY']}",
+                  'Content-Type': 'application/json',
+              },
+          )
+
+          with urllib.request.urlopen(req, timeout=180) as response:
+              result = json.load(response)
+
+          output = []
+          for item in result.get('output', []):
+              if item.get('type') != 'message':
+                  continue
+              for content in item.get('content', []):
+                  if content.get('type') == 'output_text':
+                      output.append(content.get('text', ''))
+
+          review = '\n'.join(output).strip()
+          if not review:
+              raise RuntimeError('Groq Responses API returned no review text')
+
+          Path('/tmp/review.md').write_text(review, encoding='utf-8')
+          print(review)
+          PY
 
       - name: Post review result
         env:
           GH_TOKEN: ${{ github.token }}
-          REVIEW: ${{ steps.review.outputs.final-message }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment "${PR_NUMBER}" --body "## AI Deal Review\n\n${REVIEW}"
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
