@@ -177,8 +177,18 @@ Generate the strategy and draft response based on the structured analysis, match
         )
         
         # Combine and return full ResponseIntelligence
-        return ResponseIntelligence(
+        intelligence = ResponseIntelligence(
             message_analysis=message_analysis,
             strategy=stage2_result.strategy,
             response=stage2_result.response
         )
+        
+        # Deterministic Business Rules
+        from app.schemas.analysis import ScopeImpact
+        if intelligence.message_analysis.scope_guard.classification in [
+            ScopeImpact.POTENTIALLY_OUT_OF_SCOPE,
+            ScopeImpact.CONFLICT_WITH_EXCLUSION
+        ]:
+            intelligence.response.requires_review = True
+            
+        return intelligence
