@@ -47,14 +47,12 @@ Additional Context Provided by User:
 Please extract the deal details according to the schema.
 """
         
-        # 1. Ask LLM to generate the structured Deal
         extracted_deal = self.provider.generate_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             response_model=Deal
         )
         
-        # 2. Overwrite provided commercial/timeline defaults if given explicitly in the request
         if request.budget:
             extracted_deal.commercial.budget = request.budget
         if request.currency:
@@ -62,7 +60,6 @@ Please extract the deal details according to the schema.
         if request.deadline and not extracted_deal.timeline.deadline:
             extracted_deal.timeline.deadline = request.deadline
             
-        # 3. Pass through the Rule Engine to calculate preflight and risks deterministically
         final_deal = self.rule_engine.evaluate(extracted_deal)
         
         return final_deal
@@ -103,6 +100,25 @@ Analyze the scope diff according to the schema.
         )
         return scope_diff
 
+    @staticmethod
+    def _is_material_change(item: str) -> bool:
+        """Return whether a changed scope item requires deterministic human review."""
+        normalized = " ".join(item.lower().strip().replace("_", " ").replace("-", " ").split())
+        material_terms = {
+            "deadline",
+            "due date",
+            "delivery date",
+            "delivery deadline",
+            "timeline",
+            "budget",
+            "price",
+            "pricing",
+            "rate",
+            "cost",
+            "fee",
+        }
+        return normalized in material_terms
+
     def analyze_contextual_message(self, deal: Deal, message: str, objective: str, tone: str = "professional"):
         from app.schemas.analysis import MessageAnalysis, Strategy, ResponseDraft, ResponseIntelligence, IntentAnalysis, DealContextSummary
         from pydantic import BaseModel
@@ -136,7 +152,6 @@ Extract the intent and relevant context.
             response_model=PartialMessageAnalysis
         )
         
-        # Combine into authoritative MessageAnalysis
         message_analysis = MessageAnalysis(
             intent=partial_analysis.intent,
             scope_guard=scope_guard_result,
@@ -175,27 +190,25 @@ Generate the strategy and draft response based on the structured analysis, match
             response_model=Stage2Result
         )
         
-        # Combine and return full ResponseIntelligence
         intelligence = ResponseIntelligence(
             message_analysis=message_analysis,
             strategy=stage2_result.strategy,
             response=stage2_result.response
         )
         
-        # Deterministic Business Rules
+        # Deterministic Business Rules: never trust the LLM-generated review flag.
         from app.schemas.analysis import ScopeImpact
         classification = intelligence.message_analysis.scope_guard.classification
-        
-        # Check for material changes
-        material_change = False
-        for c in intelligence.message_analysis.scope_guard.changed:
-            if c.item.lower() in ["deadline", "budget"]:
-                material_change = True
-                break
+        material_change = any(
+            self._is_material_change(change.item)
+            for change in intelligence.message_analysis.scope_guard.changed
+        )
 
         if classification in [ScopeImpact.POTENTIALLY_OUT_OF_SCOPE, ScopeImpact.CONFLICT_WITH_EXCLUSION]:
             intelligence.response.requires_review = True
         elif classification == ScopeImpact.IN_SCOPE:
             intelligence.response.requires_review = material_change
+        else:
+            intelligence.response.requires_review = False
             
         return intelligence
