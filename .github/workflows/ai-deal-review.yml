@@ -1,0 +1,71 @@
+name: AI Deal Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: github.event.pull_request.user.login == 'Curi07' || startsWith(github.event.pull_request.head.ref, 'agent/issue-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install project dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Codex review
+        id: review
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} in Curi07/AI-Deal-Guardian.
+
+            PR TITLE:
+            ${{ github.event.pull_request.title }}
+
+            PR BODY:
+            ${{ github.event.pull_request.body }}
+
+            Review ONLY the changes introduced by this PR.
+            Compare the PR with the base branch using git diff.
+
+            Check:
+            - correctness and regressions
+            - business-logic consistency
+            - API behavior
+            - security issues
+            - test coverage
+            - whether the implementation actually satisfies the Issue
+            - whether the full pytest suite passes
+
+            Do not modify files, commit, push, merge, or deploy.
+            Return a concise review with:
+            1. VERDICT: APPROVE, REQUEST_CHANGES, or NEEDS_HUMAN_REVIEW
+            2. Findings ordered by severity
+            3. Test result
+            4. Any specific file/line that needs attention
+
+      - name: Post review result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW: ${{ steps.review.outputs.final-message }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "${PR_NUMBER}" --body "## AI Deal Review\n\n${REVIEW}"
