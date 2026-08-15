@@ -3,6 +3,8 @@ name: Groq Issue Agent
 on:
   issues:
     types: [opened, edited]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -11,7 +13,10 @@ permissions:
 
 jobs:
   implement:
-    if: github.event.issue.user.login == 'Curi07'
+    if: >-
+      (github.event_name == 'issues' && github.event.issue.user.login == 'Curi07') ||
+      (github.event_name == 'issue_comment' && !github.event.issue.pull_request &&
+       github.event.issue.user.login == 'Curi07' && github.event.comment.user.login == 'Curi07')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
