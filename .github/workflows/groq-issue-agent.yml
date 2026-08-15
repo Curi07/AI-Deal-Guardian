@@ -2,19 +2,28 @@ name: Groq Issue Agent
 
 on:
   workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to resolve (leave empty to auto-select the oldest actionable open issue)'
+        required: false
+        type: string
   schedule:
     - cron: '17 * * * *'
 
 permissions:
   contents: write
   pull-requests: write
-  issues: read
+  issues: write
+
+concurrency:
+  group: groq-issue-agent
+  cancel-in-progress: false
 
 jobs:
   implement:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -24,21 +33,48 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Collect open issues and repository snapshot
+      - name: Select one issue
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_ISSUE: ${{ inputs.issue_number }}
         run: |
-          gh issue list --state open --limit 100 --json number,title,body,labels,assignees,url > /tmp/issues.json
-          python - <<'PY'
+          if [ -n "$INPUT_ISSUE" ]; then
+            gh issue view "$INPUT_ISSUE" --json number,title,body,labels,assignees,url > /tmp/issue.json
+          else
+            gh issue list --state open --limit 100 --json number,title,body,labels,assignees,url > /tmp/issues.json
+            python - <<'PY'
           import json
           from pathlib import Path
           issues=json.loads(Path('/tmp/issues.json').read_text())
           actionable=[i for i in issues if not i['title'].strip().upper().startswith('TEST:')]
-          Path('/tmp/actionable_issues.json').write_text(json.dumps(actionable,indent=2))
-          print(f'Open issues: {len(issues)}')
-          print(f'Actionable issues: {len(actionable)}')
-          for i in actionable: print(f"#{i['number']}: {i['title']}")
+          if not actionable:
+              print('NO_ISSUE')
+              Path('/tmp/issue.json').write_text('{}')
+          else:
+              Path('/tmp/issue.json').write_text(json.dumps(actionable[0], indent=2))
+              print(f"Selected #{actionable[0]['number']}: {actionable[0]['title']}")
           PY
+          fi
+
+      - name: Stop when there is no actionable issue
+        id: selected
+        run: |
+          if [ ! -s /tmp/issue.json ] || [ "$(cat /tmp/issue.json)" = '{}' ]; then
+            echo "has_issue=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_issue=true" >> "$GITHUB_OUTPUT"
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          i=json.loads(Path('/tmp/issue.json').read_text())
+          print(f"ISSUE_NUMBER={i['number']}")
+          print(f"ISSUE_TITLE={i['title']}")
+          PY
+          fi
+
+      - name: Build repository context
+        if: steps.selected.outputs.has_issue == 'true'
+        run: |
           python - <<'PY'
           from pathlib import Path
           excluded={'.git','.venv','venv','__pycache__','.pytest_cache','node_modules'}
@@ -53,66 +89,112 @@ jobs:
           Path('/tmp/repo_snapshot.txt').write_text('\n'.join(chunks),encoding='utf-8')
           PY
 
-      - name: Ask Groq to implement actionable issues
-        id: groq
+      - name: Ask Groq to resolve the issue
+        if: steps.selected.outputs.has_issue == 'true'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           python - <<'PY'
           import json, os, urllib.request
           from pathlib import Path
-          issues=Path('/tmp/actionable_issues.json').read_text()
+          issue=Path('/tmp/issue.json').read_text()
           repo=Path('/tmp/repo_snapshot.txt').read_text()
-          prompt=f'''You are the implementation engineer for AI-Deal-Guardian.
+          instructions='''You are the coding agent for AI-Deal-Guardian. Resolve exactly ONE GitHub Issue.
 
-Review ALL actionable open GitHub Issues supplied below and implement the requested changes in the repository snapshot.
+Return ONLY a valid unified git diff suitable for git apply. Never use markdown fences.
 
-RULES:
-- Return ONLY a unified git diff suitable for git apply. No markdown fences.
-- If there are no actionable issues, return exactly NO_PATCH.
-- Prioritize correctness and minimal focused changes.
-- Preserve existing behavior unless an issue explicitly requires changing it.
-- Add/update focused tests for every implemented issue.
+Rules:
+- Understand the issue before editing.
+- Keep the implementation focused and minimal.
+- Preserve existing behavior unless the issue requires a change.
+- Add or update focused tests that prove the requested behavior.
 - Do not modify .github/workflows, Docker/deployment infrastructure, secrets, credentials, or production configuration.
 - Do not remove existing tests.
 - Do not invent requirements.
-- Never merge to main; changes must be delivered through a PR.
+- Do not merge anything to main.
+- The result must be suitable for a human-reviewed Pull Request.
 
-ACTIONABLE OPEN ISSUES:
-{issues}
-
-REPOSITORY SNAPSHOT:
-{repo}
+Repository-specific instructions are below when present.
 '''
-          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise senior software engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode()
+          try:
+              repo_rules=Path('.ai/coding-agent.md').read_text()
+          except FileNotFoundError:
+              repo_rules=''
+          prompt=f"{instructions}\n{repo_rules}\n\nISSUE:\n{issue}\n\nREPOSITORY SNAPSHOT:\n{repo}"
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise senior software engineer. Output only a unified diff.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode()
           req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
           with urllib.request.urlopen(req,timeout=180) as r: out=json.load(r)['choices'][0]['message']['content'].strip()
           Path('/tmp/patch.diff').write_text(out,encoding='utf-8')
           print(out[:5000])
           PY
-          if grep -qx 'NO_PATCH' /tmp/patch.diff; then echo 'has_patch=false' >> "$GITHUB_OUTPUT"; else echo 'has_patch=true' >> "$GITHUB_OUTPUT"; fi
 
       - name: Apply patch
-        if: steps.groq.outputs.has_patch == 'true'
+        if: steps.selected.outputs.has_issue == 'true'
         run: |
           git apply --check /tmp/patch.diff
           git apply /tmp/patch.diff
           git diff --check
 
       - name: Run tests
-        if: steps.groq.outputs.has_patch == 'true'
+        id: tests
+        if: steps.selected.outputs.has_issue == 'true'
+        continue-on-error: true
+        run: pytest -q 2>&1 | tee /tmp/pytest.txt
+
+      - name: Ask Groq to fix failing tests
+        if: steps.selected.outputs.has_issue == 'true' && steps.tests.outcome == 'failure'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          git diff > /tmp/current.diff
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          prompt=f'''Fix the failing tests for this ONE GitHub Issue in AI-Deal-Guardian.
+Return ONLY a unified git diff suitable for git apply. Do not modify workflows, deployment infrastructure, secrets, or unrelated code.
+
+ISSUE:
+{Path('/tmp/issue.json').read_text()}
+
+CURRENT DIFF:
+{Path('/tmp/current.diff').read_text()}
+
+TEST OUTPUT:
+{Path('/tmp/pytest.txt').read_text()[-30000:]}
+'''
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise debugging engineer. Output only a unified diff.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':30000}).encode()
+          req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=180) as r: out=json.load(r)['choices'][0]['message']['content'].strip()
+          Path('/tmp/fix.diff').write_text(out,encoding='utf-8')
+          PY
+          git apply --check /tmp/fix.diff
+          git apply /tmp/fix.diff
+          git diff --check
+
+      - name: Verify tests
+        if: steps.selected.outputs.has_issue == 'true'
         run: pytest -q
 
-      - name: Create review branch and PR
-        if: steps.groq.outputs.has_patch == 'true'
+      - name: Create branch and Pull Request
+        if: steps.selected.outputs.has_issue == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          branch="agent/issue-batch-${GITHUB_RUN_ID}"
+          ISSUE_NUMBER=$(python -c "import json; print(json.load(open('/tmp/issue.json'))['number'])")
+          ISSUE_TITLE=$(python -c "import json; print(json.load(open('/tmp/issue.json'))['title'])")
+          branch="agent/issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}"
           git switch -c "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "feat: implement actionable issues"
+          git commit -m "fix: resolve issue #${ISSUE_NUMBER}"
           git push --set-upstream origin "$branch"
-          gh pr create --base main --head "$branch" --title "feat: implement actionable issues" --body "Automated implementation of actionable open issues using Groq. pytest passed. Please review before merging."
+          gh pr create --base main --head "$branch" --title "fix: ${ISSUE_TITLE}" --body "## Automated implementation\n\nResolves #${ISSUE_NUMBER}.\n\n### Validation\n- `pytest -q` passed\n- Implementation generated by Groq\n\nPlease review before merging."
+
+      - name: Comment on issue
+        if: steps.selected.outputs.has_issue == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUE_NUMBER=$(python -c "import json; print(json.load(open('/tmp/issue.json'))['number'])")
+          gh issue comment "$ISSUE_NUMBER" --body "AI coding agent completed an implementation attempt and opened a Pull Request. Please review the PR before merging."
