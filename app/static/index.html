@@ -8,50 +8,97 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="logo">AI Deal Guardian</div>
+    <nav class="sidebar">
+        <div class="logo-container">
+            <div class="logo">Deal Guardian</div>
+        </div>
         <div class="nav-links">
-            <a href="#" id="nav-new-deal" class="active">New Deal</a>
+            <a href="#" id="nav-dashboard" class="active">Dashboard</a>
+            <a href="#" id="nav-new-deal">New Deal</a>
         </div>
     </nav>
 
-    <main class="container">
+    <main class="main-content">
         
-        <!-- View: New Deal -->
-        <section id="view-new-deal" class="view active">
-            <h1>Create Deal</h1>
-            <p>Paste the client brief below to analyze the deal parameters and risk.</p>
-            
-            <div class="form-group">
-                <label for="deal-brief">Client Brief</label>
-                <textarea id="deal-brief" rows="6" placeholder="Ej: Necesito una landing page..."></textarea>
+        <!-- View: Dashboard -->
+        <section id="view-dashboard" class="view active">
+            <div class="header-action">
+                <h1>Deals Dashboard</h1>
+                <button id="btn-goto-new" class="btn primary">+ New Deal</button>
             </div>
             
-            <button id="btn-analyze-deal" class="btn primary">Analyze Deal</button>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Project / Title</th>
+                            <th>Client</th>
+                            <th>Budget</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deals-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
         </section>
 
-        <!-- View: Deal Preflight -->
+        <!-- View: New Deal -->
+        <section id="view-new-deal" class="view hidden">
+            <h1>Create New Deal</h1>
+            <p>Paste the client brief and parameters below to analyze the deal.</p>
+            
+            <div class="card">
+                <div class="form-grid mb-2">
+                    <div class="form-group">
+                        <label for="deal-budget">Budget</label>
+                        <input type="number" id="deal-budget" placeholder="e.g. 500">
+                    </div>
+                    <div class="form-group">
+                        <label for="deal-currency">Currency</label>
+                        <input type="text" id="deal-currency" placeholder="USD" value="USD">
+                    </div>
+                    <div class="form-group">
+                        <label for="deal-deadline">Deadline</label>
+                        <input type="text" id="deal-deadline" placeholder="e.g. 10 days">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="deal-brief">Client Brief (Message)</label>
+                    <textarea id="deal-brief" rows="6" placeholder="Hi, I need a landing page..."></textarea>
+                </div>
+                
+                <div class="actions">
+                    <button id="btn-analyze-deal" class="btn primary">Analyze Deal</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: Deal Preflight (Creation Result) -->
         <section id="view-preflight" class="view hidden">
             <h1>Deal Preflight</h1>
             
             <div class="card">
-                <div class="risk-header">
+                <div class="header-action mb-2">
                     <h2>Risk Analysis</h2>
                     <span id="preflight-status" class="badge">READY</span>
                 </div>
                 
-                <div class="score-container">
-                    <div class="score-box">
-                        <span class="score-label">RISK SCORE</span>
-                        <span id="risk-score" class="score-value">0/100</span>
+                <div class="form-grid mb-2">
+                    <div class="form-group">
+                        <label>RISK SCORE</label>
+                        <h2 id="risk-score">0/100</h2>
                     </div>
-                    <div class="score-box">
-                        <span class="score-label">CONFIDENCE</span>
-                        <span id="confidence-score" class="score-value">0/100</span>
+                    <div class="form-group">
+                        <label>CONFIDENCE</label>
+                        <h2 id="confidence-score">0/100</h2>
                     </div>
                 </div>
 
-                <div id="preflight-details" class="preflight-details">
+                <div id="preflight-details">
                     <h3>Unknowns</h3>
                     <ul id="list-unknowns"></ul>
                     
@@ -64,41 +111,72 @@
             </div>
 
             <div class="actions">
-                <button id="btn-save-deal" class="btn primary">Save Deal</button>
-                <button id="btn-back-new" class="btn secondary">Back</button>
+                <button id="btn-save-deal" class="btn primary">Save & Track Deal</button>
+                <button id="btn-back-new" class="btn secondary">Back to Edit</button>
             </div>
         </section>
 
         <!-- View: Deal Memory -->
         <section id="view-deal-memory" class="view hidden">
             <div class="header-action">
-                <h1>Deal Memory <span id="memory-deal-id" class="badge text-small"></span></h1>
-                <button id="btn-open-message" class="btn primary">Analyze New Message</button>
+                <div>
+                    <h1><span id="mem-title">Deal Title</span></h1>
+                    <span id="mem-status" class="badge"></span>
+                </div>
             </div>
 
             <div class="memory-grid">
-                <!-- Deal Meta -->
+                <!-- Commercial & Timeline -->
                 <div class="card">
-                    <h2>Project</h2>
-                    <p><strong>Title:</strong> <span id="mem-title"></span></p>
+                    <h2>Parameters</h2>
                     <p><strong>Budget:</strong> <span id="mem-budget"></span></p>
                     <p><strong>Deadline:</strong> <span id="mem-deadline"></span></p>
+                    
+                    <h3 class="mt-4">Preflight Risk</h3>
+                    <p><strong>Risk Score:</strong> <span id="mem-risk"></span></p>
+                    <p><strong>Confidence:</strong> <span id="mem-confidence"></span></p>
                 </div>
 
                 <!-- Scope -->
                 <div class="card">
-                    <h2>Scope</h2>
-                    <h3>Included</h3>
+                    <h2>Current Scope</h2>
+                    <h3>Deliverables</h3>
                     <ul id="mem-included"></ul>
                     
-                    <h3>Excluded</h3>
+                    <h3>Exclusions</h3>
                     <ul id="mem-excluded"></ul>
                 </div>
 
-                <!-- Decisions -->
-                <div class="card">
-                    <h2>Decisions & Assumptions</h2>
-                    <ul id="mem-decisions"></ul>
+                <!-- New Message Input -->
+                <div class="card" style="grid-column: 1 / -1;">
+                    <h2>New Client Message</h2>
+                    <p>Analyze a new request from the client against the existing Deal Memory.</p>
+                    
+                    <div class="form-group mt-2">
+                        <textarea id="msg-content" rows="3" placeholder="Can you also add a dashboard?"></textarea>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="msg-objective">Objective</label>
+                            <select id="msg-objective">
+                                <option value="defend_price">Defend price</option>
+                                <option value="negotiate_scope" selected>Negotiate scope</option>
+                                <option value="ask_clarification">Ask clarification</option>
+                                <option value="accept">Accept changes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="msg-tone">Tone</label>
+                            <select id="msg-tone">
+                                <option value="professional" selected>Professional</option>
+                                <option value="friendly">Friendly</option>
+                                <option value="firm">Firm</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button id="btn-analyze-msg" class="btn primary mt-2">Analyze Message</button>
                 </div>
             </div>
         </section>
@@ -106,104 +184,70 @@
         <!-- View: Scope Guard & Response -->
         <section id="view-scope-guard" class="view hidden">
             <div class="header-action">
-                <h1>Scope Guard & Response</h1>
-                <button id="btn-back-memory" class="btn secondary">Back to Deal Memory</button>
+                <h1>Response Intelligence</h1>
+                <button id="btn-back-memory" class="btn secondary">Back to Deal</button>
             </div>
 
-            <div class="diff-card card">
-                <h2>Scope Diff</h2>
-                <div class="diff-meta">
-                    <span id="diff-classification" class="badge"></span>
-                    <span id="diff-commercial" class="badge commercial-badge"></span>
+            <div class="analysis-grid">
+                <!-- Scope Diff -->
+                <div class="diff-card card">
+                    <h2>Scope Guard</h2>
+                    <div class="diff-meta">
+                        <span id="diff-classification" class="badge"></span>
+                        <span id="diff-commercial" class="badge"></span>
+                    </div>
+
+                    <div id="diff-content" class="diff-content">
+                        <div class="diff-section added-section">
+                            <h3>Added</h3>
+                            <ul id="diff-added"></ul>
+                        </div>
+                        
+                        <div class="diff-section changed-section">
+                            <h3>Changed</h3>
+                            <ul id="diff-changed"></ul>
+                        </div>
+                        
+                        <div class="diff-section conflicting-section">
+                            <h3>Conflicting</h3>
+                            <ul id="diff-conflicting"></ul>
+                        </div>
+                        
+                        <div class="diff-section unchanged-section">
+                            <h3>Unchanged</h3>
+                            <ul id="diff-unchanged"></ul>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="diff-content" class="diff-content">
-                    <div class="diff-section added-section">
-                        <h3>Added</h3>
-                        <ul id="diff-added"></ul>
+                <!-- Strategy & Response -->
+                <div class="response-card card">
+                    <h2>Strategy</h2>
+                    <div class="mb-2">
+                        <span class="badge neutral" id="resp-intent"></span>
+                        <span class="badge info" id="resp-strategy"></span>
                     </div>
                     
-                    <div class="diff-section changed-section">
-                        <h3>Changed</h3>
-                        <ul id="diff-changed"></ul>
-                    </div>
+                    <h3>Reasoning</h3>
+                    <ul id="resp-reasoning"></ul>
                     
-                    <div class="diff-section conflicting-section">
-                        <h3>Conflicting</h3>
-                        <ul id="diff-conflicting"></ul>
-                    </div>
-                    
-                    <div class="diff-section unchanged-section">
-                        <h3>Unchanged</h3>
-                        <ul id="diff-unchanged"></ul>
-                    </div>
-                </div>
+                    <h3>Pricing Action</h3>
+                    <p id="resp-pricing-action"></p>
 
-                <div class="diff-evidence">
-                    <h3>Evidence</h3>
-                    <p id="diff-evidence-text"></p>
-                    <h3>Recommended Action</h3>
-                    <p id="diff-recommended"></p>
+                    <h2 class="mt-4">Draft Response <span id="review-badge" class="badge review hidden">REQUIRES REVIEW</span></h2>
+                    
+                    <div class="form-group mt-2">
+                        <textarea id="resp-draft" rows="8"></textarea>
+                    </div>
+                    
+                    <div class="actions">
+                        <button id="btn-approve-response" class="btn primary">Approve & Send</button>
+                    </div>
                 </div>
-            </div>
-
-            <div class="response-card card mt-4">
-                <h2>Response Intelligence</h2>
-                <div class="intent-meta">
-                    <p><strong>Intent:</strong> <span id="resp-intent"></span></p>
-                    <p><strong>Strategy:</strong> <span id="resp-strategy"></span></p>
-                </div>
-                
-                <div class="form-group mt-2">
-                    <label for="resp-draft">Draft Response <span class="badge text-small">Review before sending</span></label>
-                    <textarea id="resp-draft" rows="6"></textarea>
-                </div>
-                
-                <button id="btn-copy-response" class="btn primary">Copy Response</button>
             </div>
         </section>
 
     </main>
-
-    <!-- Modal: New Message -->
-    <div id="modal-message" class="modal hidden">
-        <div class="modal-content card">
-            <h2>New Client Message</h2>
-            
-            <div class="form-group">
-                <label for="msg-content">Message</label>
-                <textarea id="msg-content" rows="4"></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="msg-objective">Objective</label>
-                <select id="msg-objective">
-                    <option value="defend_price">Defend price</option>
-                    <option value="negotiate_scope">Negotiate scope</option>
-                    <option value="ask_clarification">Ask clarification</option>
-                    <option value="accept">Accept</option>
-                    <option value="reject">Reject</option>
-                    <option value="preserve_relationship">Preserve relationship</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="msg-tone">Tone</label>
-                <select id="msg-tone">
-                    <option value="professional">Professional</option>
-                    <option value="friendly">Friendly</option>
-                    <option value="firm">Firm</option>
-                    <option value="concise">Concise</option>
-                    <option value="neutral">Neutral</option>
-                </select>
-            </div>
-            
-            <div class="actions">
-                <button id="btn-analyze-msg" class="btn primary">Analyze Message</button>
-                <button id="btn-close-modal" class="btn secondary">Cancel</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">

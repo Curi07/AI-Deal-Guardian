@@ -73,3 +73,39 @@ class DealRepository:
         finally:
             conn.close()
         return msg_id
+
+    def list_deals(self) -> List[Dict[str, Any]]:
+        conn = get_connection()
+        try:
+            rows = conn.execute("SELECT id, data FROM deals ORDER BY rowid DESC").fetchall()
+            deals = []
+            for row in rows:
+                data = json.loads(row["data"])
+                
+                # Extract summary info safely
+                project = data.get("project", {})
+                title = project.get("title", "Untitled Deal")
+                client = project.get("client_name", "Unknown")
+                
+                commercial = data.get("commercial", {})
+                budget = commercial.get("budget", 0)
+                currency = commercial.get("currency", "USD")
+                
+                timeline = data.get("timeline", {})
+                deadline = timeline.get("deadline", "TBD")
+                
+                preflight = data.get("preflight", {})
+                status = preflight.get("status", "UNKNOWN")
+                
+                deals.append({
+                    "id": row["id"],
+                    "title": title,
+                    "client": client,
+                    "budget": budget,
+                    "currency": currency,
+                    "deadline": deadline,
+                    "status": status
+                })
+            return deals
+        finally:
+            conn.close()

@@ -55,6 +55,13 @@ async def create_deal(deal: Deal):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("", response_model=list[Dict[str, Any]])
+async def get_all_deals():
+    try:
+        return repo.list_deals()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/{deal_id}", response_model=Deal)
 async def get_deal(deal_id: str):
     deal = repo.get_deal(deal_id)
