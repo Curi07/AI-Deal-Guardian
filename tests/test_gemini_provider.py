@@ -19,7 +19,7 @@ def test_gemini_provider_success(mock_client_class):
     mock_response.text = json.dumps({"message": "Hello from mock Gemini", "confidence": 0.99})
     mock_client.models.generate_content.return_value = mock_response
 
-    provider = GeminiProvider(api_key="test_key", model="gemini-3.5-flash")
+    provider = GeminiProvider(api_key="test_key", model="gemini-3.1-flash-lite")
     
     result = provider.generate_structured(
         system_prompt="You are a helpful assistant",
@@ -32,7 +32,7 @@ def test_gemini_provider_success(mock_client_class):
     assert result.confidence == 0.99
     
     call_args = mock_client.models.generate_content.call_args
-    assert call_args.kwargs["model"] == "gemini-3.5-flash"
+    assert call_args.kwargs["model"] == "gemini-3.1-flash-lite"
     assert call_args.kwargs["config"].response_mime_type == "application/json"
 
 @patch('app.llm.provider.genai.Client')
@@ -97,7 +97,7 @@ def test_gemini_provider_generate_deal(mock_client_class):
     mock_response.text = json.dumps(deal_json)
     mock_client.models.generate_content.return_value = mock_response
 
-    provider = GeminiProvider(api_key="test_key", model="gemini-3.5-flash")
+    provider = GeminiProvider(api_key="test_key", model="gemini-3.1-flash-lite")
     
     result = provider.generate_structured("system", "user", Deal)
     assert isinstance(result, Deal)
@@ -114,7 +114,7 @@ def test_gemini_provider_dynamic_models(mock_client_class):
     })
     mock_client.models.generate_content.return_value = mock_response
 
-    provider = GeminiProvider(api_key="test_key", model="gemini-3.5-flash")
+    provider = GeminiProvider(api_key="test_key", model="gemini-3.1-flash-lite")
     
     class PartialMessageAnalysis(BaseModel):
         intent: IntentAnalysis
