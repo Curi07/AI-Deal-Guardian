@@ -54,6 +54,7 @@ jobs:
           PY
 
       - name: Ask Groq to implement actionable issues
+        id: groq
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
@@ -89,21 +90,21 @@ REPOSITORY SNAPSHOT:
           Path('/tmp/patch.diff').write_text(out,encoding='utf-8')
           print(out[:5000])
           PY
-
-      - name: Stop when there is no patch
-        run: |
-          if grep -qx 'NO_PATCH' /tmp/patch.diff; then echo 'No actionable patch.'; exit 0; fi
+          if grep -qx 'NO_PATCH' /tmp/patch.diff; then echo 'has_patch=false' >> "$GITHUB_OUTPUT"; else echo 'has_patch=true' >> "$GITHUB_OUTPUT"; fi
 
       - name: Apply patch
+        if: steps.groq.outputs.has_patch == 'true'
         run: |
           git apply --check /tmp/patch.diff
           git apply /tmp/patch.diff
           git diff --check
 
       - name: Run tests
+        if: steps.groq.outputs.has_patch == 'true'
         run: pytest -q
 
       - name: Create review branch and PR
+        if: steps.groq.outputs.has_patch == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
