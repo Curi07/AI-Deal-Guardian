@@ -26,6 +26,20 @@ jobs:
           python - <<'PY'
           import os
           from pathlib import Path
+          excluded = {'.git', '.venv', 'venv', '__pycache__', '.pytest_cache', 'node_modules'}
+          exts = {'.py', '.html', '.css', '.js', '.json', '.yml', '.yaml', '.md', '.txt', '.toml', '.ini'}
+          chunks = []
+          for p in sorted(Path('.').rglob('*')):
+              if not p.is_file() or any(part in excluded for part in p.parts):
+                  continue
+              if p.stat().st_size > 120_000 or p.suffix.lower() not in exts:
+                  continue
+              try:
+                  text = p.read_text(encoding='utf-8')
+              except Exception:
+                  continue
+              chunks.append(f'===== FILE: {p} =====\n{text}\n')
+          Path('/tmp/repo_snapshot.txt').write_text('\n'.join(chunks), encoding='utf-8')
           Path('/tmp/issue.txt').write_text(
               f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}",
               encoding='utf-8')
@@ -33,4 +47,48 @@ jobs:
       - name: Ask Groq for implementation patch
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: echo "Groq step placeholder"
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from pathlib import Path
+
+          issue = Path('/tmp/issue.txt').read_text(encoding='utf-8')
+          repo = Path('/tmp/repo_snapshot.txt').read_text(encoding='utf-8')
+          prompt = f'''You are the coding agent for the repository AI-Deal-Guardian.
+
+Implement the GitHub Issue below. Work only from the supplied repository snapshot.
+Return ONLY a valid unified git diff that can be applied with git apply. Do not use markdown fences.
+If the issue is unclear, unsafe, unrelated to the repository, or requires secrets/production deployment, return exactly: NO_PATCH.
+Do not modify .github/workflows, Docker deployment configuration, secrets, credentials, or production infrastructure.
+Keep the change focused. Add or update tests when appropriate. Do not remove existing tests.
+
+ISSUE:
+{issue}
+
+REPOSITORY:
+{repo}
+'''
+          data = json.dumps({
+              'model': 'openai/gpt-oss-120b',
+              'messages': [
+                  {'role': 'system', 'content': 'You are a precise software engineer. Output only a unified diff or NO_PATCH.'},
+                  {'role': 'user', 'content': prompt},
+              ],
+              'temperature': 0,
+              'max_tokens': 50000,
+          }).encode('utf-8')
+          req = urllib.request.Request(
+              'https://api.groq.com/openai/v1/chat/completions',
+              data=data,
+              headers={
+                  'Authorization': f"Bearer {os.environ['GROQ_API_KEY']}",
+                  'Content-Type': 'application/json',
+              },
+          )
+          with urllib.request.urlopen(req, timeout=180) as response:
+              out = json.load(response)['choices'][0]['message']['content']
+          Path('/tmp/patch.diff').write_text(out, encoding='utf-8')
+          print(out[:4000])
+          PY
