@@ -116,7 +116,7 @@ def test_in_scope(base_deal):
     result = service.analyze_contextual_message(base_deal, "Can you change the text in the hero section and update the contact email?", "reply")
     assert result.message_analysis.scope_guard.classification == ScopeImpact.IN_SCOPE
     assert result.message_analysis.scope_guard.commercial_impact.level == "none"
-
+    assert result.response.requires_review is False
 def test_out_of_scope(base_deal):
     service = ExtractionService(ScenarioMockProvider("OUT_OF_SCOPE"))
     result = service.analyze_contextual_message(base_deal, "Can you also add a dashboard for logged-in users?", "reply")
@@ -174,3 +174,4 @@ def test_exclusion_conflict(base_deal):
     assert result.message_analysis.scope_guard.classification == ScopeImpact.CONFLICT_WITH_EXCLUSION
     assert "Maintenance" in result.message_analysis.scope_guard.conflicting
     assert result.message_analysis.scope_guard.commercial_impact.level == "high"
+    assert result.response.requires_review is True

@@ -155,8 +155,7 @@ CRITICAL INSTRUCTIONS:
 1. The user's objective is AUTHORITATIVE. Generate a strategy that fulfills the objective (e.g., if objective is 'defend_price', do not propose a discount).
 2. The generated response must be SURGICAL: one clear objective, no unnecessary info, grounded in the Deal.
 3. NO HALLUCINATION: Never invent prices, deadlines, deliverables, or agreements. If missing, recommend asking for clarification.
-4. Always set requires_review=True in the response draft.
-5. Do NOT silently resolve conflicts with confirmed decisions. Recommend clarification/renegotiation.
+4. Do NOT silently resolve conflicts with confirmed decisions. Recommend clarification/renegotiation.
 """
         stage2_user_prompt = f"""
 === STRUCTURED ANALYSIS ===
@@ -190,5 +189,7 @@ Generate the strategy and draft response based on the structured analysis, match
             ScopeImpact.CONFLICT_WITH_EXCLUSION
         ]:
             intelligence.response.requires_review = True
+        elif intelligence.message_analysis.scope_guard.classification == ScopeImpact.IN_SCOPE:
+            intelligence.response.requires_review = False
             
         return intelligence

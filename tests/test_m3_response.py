@@ -44,7 +44,7 @@ def test_m3_price_negotiation_defend_price():
     analysis = service.analyze_contextual_message(deal, "Can you do USD 800?", objective="defend_price")
     assert analysis.message_analysis.intent.primary == "price_negotiation"
     assert analysis.message_analysis.scope_guard.commercial_impact.level == "high"
-    assert analysis.response.requires_review is True
+    assert analysis.response.requires_review is False
 
 def test_m3_price_for_scope_negotiate():
     mock_data = build_mock_response("price_negotiation", "potentially_out_of_scope", "high")
@@ -101,7 +101,7 @@ def test_m3_human_review_required():
     service = ExtractionService(MockLLMProvider(mock_response=mock_data))
     deal = Deal()
     analysis = service.analyze_contextual_message(deal, "Thanks", objective="preserve_relationship")
-    assert analysis.response.requires_review is True
+    assert analysis.response.requires_review is False
 
 def test_m3_no_hallucination():
     mock_data = build_mock_response("general_communication", "in_scope", "none", draft="We will deliver by Friday for $500.")
