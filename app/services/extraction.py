@@ -184,12 +184,18 @@ Generate the strategy and draft response based on the structured analysis, match
         
         # Deterministic Business Rules
         from app.schemas.analysis import ScopeImpact
-        if intelligence.message_analysis.scope_guard.classification in [
-            ScopeImpact.POTENTIALLY_OUT_OF_SCOPE,
-            ScopeImpact.CONFLICT_WITH_EXCLUSION
-        ]:
+        classification = intelligence.message_analysis.scope_guard.classification
+        
+        # Check for material changes
+        material_change = False
+        for c in intelligence.message_analysis.scope_guard.changed:
+            if c.item.lower() in ["deadline", "budget"]:
+                material_change = True
+                break
+
+        if classification in [ScopeImpact.POTENTIALLY_OUT_OF_SCOPE, ScopeImpact.CONFLICT_WITH_EXCLUSION]:
             intelligence.response.requires_review = True
-        elif intelligence.message_analysis.scope_guard.classification == ScopeImpact.IN_SCOPE:
-            intelligence.response.requires_review = False
+        elif classification == ScopeImpact.IN_SCOPE:
+            intelligence.response.requires_review = material_change
             
         return intelligence

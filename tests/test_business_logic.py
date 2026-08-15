@@ -43,7 +43,7 @@ class ScenarioMockProvider(LLMProvider):
                 return response_model(**{
                     "added": [], "removed": [], "changed": [{"item": "deadline", "before": "10 days", "after": "5 days"}],
                     "conflicting": [], "unchanged": [],
-                    "classification": "potentially_out_of_scope",
+                    "classification": "in_scope",
                     "commercial_impact": {"level": "high", "reason": "Rush delivery", "pricing_action": "rush_fee"},
                     "recommended_action": "Review timeline", "evidence": []
                 })
@@ -51,7 +51,7 @@ class ScenarioMockProvider(LLMProvider):
                 return response_model(**{
                     "added": [], "removed": [], "changed": [{"item": "budget", "before": "$500", "after": "$300"}],
                     "conflicting": [], "unchanged": [],
-                    "classification": "potentially_out_of_scope",
+                    "classification": "in_scope",
                     "commercial_impact": {"level": "high", "reason": "Budget reduced", "pricing_action": "decrease_scope"},
                     "recommended_action": "Renegotiate scope", "evidence": []
                 })
@@ -138,6 +138,7 @@ def test_deadline_change(base_deal):
     service = ExtractionService(ScenarioMockProvider("DEADLINE_CHANGE"))
     result = service.analyze_contextual_message(base_deal, "Can you deliver it in 5 days instead of 10?", "reply")
     assert any(c.item == "deadline" for c in result.message_analysis.scope_guard.changed)
+    assert result.message_analysis.scope_guard.classification == ScopeImpact.IN_SCOPE
     assert result.message_analysis.scope_guard.commercial_impact.level == "high"
     assert result.response.requires_review is True
 
@@ -145,8 +146,9 @@ def test_budget_reduction(base_deal):
     service = ExtractionService(ScenarioMockProvider("BUDGET_REDUCTION"))
     result = service.analyze_contextual_message(base_deal, "I need everything we discussed, but my maximum budget is now $300.", "reply")
     assert any(c.item == "budget" for c in result.message_analysis.scope_guard.changed)
-    assert result.message_analysis.scope_guard.classification == ScopeImpact.POTENTIALLY_OUT_OF_SCOPE
+    assert result.message_analysis.scope_guard.classification == ScopeImpact.IN_SCOPE
     assert result.message_analysis.scope_guard.commercial_impact.level == "high"
+    assert result.response.requires_review is True
 
 def test_ambiguous_request(base_deal):
     service = ExtractionService(ScenarioMockProvider("AMBIGUOUS_REQUEST"))
