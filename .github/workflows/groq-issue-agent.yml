@@ -3,6 +3,8 @@ name: Groq Issue Agent
 on:
   issues:
     types: [opened, edited]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -11,6 +13,7 @@ permissions:
 
 jobs:
   implement:
+    if: github.event_name == 'issues' || (github.event_name == 'issue_comment' && !github.event.issue.pull_request)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +56,6 @@ jobs:
           import os
           import urllib.request
           from pathlib import Path
-
           issue = Path('/tmp/issue.txt').read_text(encoding='utf-8')
           repo = Path('/tmp/repo_snapshot.txt').read_text(encoding='utf-8')
           prompt = f'''You are the coding agent for the repository AI-Deal-Guardian.
@@ -70,23 +72,8 @@ ISSUE:
 REPOSITORY:
 {repo}
 '''
-          data = json.dumps({
-              'model': 'openai/gpt-oss-120b',
-              'messages': [
-                  {'role': 'system', 'content': 'You are a precise software engineer. Output only a unified diff or NO_PATCH.'},
-                  {'role': 'user', 'content': prompt},
-              ],
-              'temperature': 0,
-              'max_tokens': 50000,
-          }).encode('utf-8')
-          req = urllib.request.Request(
-              'https://api.groq.com/openai/v1/chat/completions',
-              data=data,
-              headers={
-                  'Authorization': f"Bearer {os.environ['GROQ_API_KEY']}",
-                  'Content-Type': 'application/json',
-              },
-          )
+          data = json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise software engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode('utf-8')
+          req = urllib.request.Request('https://api.groq.com/openai/v1/chat/completions', data=data, headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
           with urllib.request.urlopen(req, timeout=180) as response:
               out = json.load(response)['choices'][0]['message']['content']
           Path('/tmp/patch.diff').write_text(out, encoding='utf-8')
