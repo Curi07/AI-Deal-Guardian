@@ -30,3 +30,7 @@ jobs:
               f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}",
               encoding='utf-8')
           PY
+      - name: Ask Groq for implementation patch
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: echo "Groq step placeholder"
