@@ -3,6 +3,8 @@ name: Groq Issue Agent
 on:
   issues:
     types: [opened, edited]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -31,7 +33,6 @@ jobs:
           python - <<'PY'
           import os
           from pathlib import Path
-
           excluded = {'.git', '.venv', 'venv', '__pycache__', '.pytest_cache', 'node_modules'}
           exts = {'.py', '.html', '.css', '.js', '.json', '.yml', '.yaml', '.md', '.txt', '.toml', '.ini'}
           chunks = []
@@ -45,12 +46,8 @@ jobs:
               except Exception:
                   continue
               chunks.append(f'===== FILE: {p} =====\n{text}\n')
-
           Path('/tmp/repo_snapshot.txt').write_text('\n'.join(chunks), encoding='utf-8')
-          Path('/tmp/issue.txt').write_text(
-              f"TITLE: {os.environ.get('ISSUE_TITLE', '')}\n\nBODY:\n{os.environ.get('ISSUE_BODY', '')}",
-              encoding='utf-8',
-          )
+          Path('/tmp/issue.txt').write_text(f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}", encoding='utf-8')
           PY
 
       - name: Ask Groq for implementation patch
@@ -58,19 +55,15 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           python - <<'PY'
-          import json
-          import os
-          import urllib.request
+          import json, os, urllib.request
           from pathlib import Path
-
           issue = Path('/tmp/issue.txt').read_text(encoding='utf-8')
           repo = Path('/tmp/repo_snapshot.txt').read_text(encoding='utf-8')
-          prompt = f'''You are the coding agent for the repository AI-Deal-Guardian.
-
-Implement the GitHub Issue below. Work only from the supplied repository snapshot.
-Return ONLY a valid unified git diff that can be applied with git apply. Do not use markdown fences.
-If the issue is unclear, unsafe, unrelated to the repository, or requires secrets/production deployment, return exactly: NO_PATCH.
-Do not modify .github/workflows, Docker deployment configuration, secrets, credentials, or production infrastructure.
+          prompt = f'''You are the coding agent for AI-Deal-Guardian.
+Implement the GitHub Issue below using only the supplied repository snapshot.
+Return ONLY a valid unified git diff suitable for git apply, with no markdown fences.
+If unclear, unsafe, unrelated, or requiring secrets/production deployment, return exactly NO_PATCH.
+Do not modify workflows, Docker deployment configuration, secrets, credentials, or production infrastructure.
 Keep the change focused. Add or update tests when appropriate. Do not remove existing tests.
 
 ISSUE:
@@ -79,38 +72,17 @@ ISSUE:
 REPOSITORY:
 {repo}
 '''
-
-          data = json.dumps({
-              'model': 'openai/gpt-oss-120b',
-              'messages': [
-                  {'role': 'system', 'content': 'You are a precise software engineer. Output only a unified diff or NO_PATCH.'},
-                  {'role': 'user', 'content': prompt},
-              ],
-              'temperature': 0,
-              'max_tokens': 50000,
-          }).encode('utf-8')
-
-          req = urllib.request.Request(
-              'https://api.groq.com/openai/v1/chat/completions',
-              data=data,
-              headers={
-                  'Authorization': f"Bearer {os.environ['GROQ_API_KEY']}",
-                  'Content-Type': 'application/json',
-              },
-          )
-          with urllib.request.urlopen(req, timeout=180) as response:
-              out = json.load(response)['choices'][0]['message']['content'].strip()
-
+          data = json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise software engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode('utf-8')
+          req = urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
+          with urllib.request.urlopen(req, timeout=180) as r:
+              out = json.load(r)['choices'][0]['message']['content'].strip()
           Path('/tmp/patch.diff').write_text(out, encoding='utf-8')
           print(out[:4000])
           PY
 
       - name: Apply patch
         run: |
-          if grep -qx 'NO_PATCH' /tmp/patch.diff; then
-            echo 'Groq declined to implement this issue.'
-            exit 1
-          fi
+          if grep -qx 'NO_PATCH' /tmp/patch.diff; then echo 'Groq declined to implement this issue.'; exit 1; fi
           git apply --check /tmp/patch.diff
           git apply /tmp/patch.diff
           git diff --check
@@ -128,11 +100,8 @@ REPOSITORY:
           pytest -q 2>&1 | tee /tmp/pytest.txt || true
           git diff > /tmp/current.diff
           python - <<'PY'
-          import json
-          import os
-          import urllib.request
+          import json, os, urllib.request
           from pathlib import Path
-
           prompt = f'''Fix the failing tests for AI-Deal-Guardian.
 Return ONLY a unified git diff, or NO_PATCH.
 Do not modify workflows, secrets, deployment infrastructure, or unrelated code.
@@ -146,34 +115,12 @@ Current diff:
 Test output:
 {Path('/tmp/pytest.txt').read_text(encoding='utf-8')[-30000:]}
 '''
-
-          data = json.dumps({
-              'model': 'openai/gpt-oss-120b',
-              'messages': [
-                  {'role': 'system', 'content': 'You are a precise debugging engineer. Output only a unified diff or NO_PATCH.'},
-                  {'role': 'user', 'content': prompt},
-              ],
-              'temperature': 0,
-              'max_tokens': 30000,
-          }).encode('utf-8')
-          req = urllib.request.Request(
-              'https://api.groq.com/openai/v1/chat/completions',
-              data=data,
-              headers={
-                  'Authorization': f"Bearer {os.environ['GROQ_API_KEY']}",
-                  'Content-Type': 'application/json',
-              },
-          )
-          with urllib.request.urlopen(req, timeout=180) as response:
-              out = json.load(response)['choices'][0]['message']['content'].strip()
-          Path('/tmp/fix.diff').write_text(out, encoding='utf-8')
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise debugging engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':30000}).encode('utf-8')
+          req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=180) as r: out=json.load(r)['choices'][0]['message']['content'].strip()
+          Path('/tmp/fix.diff').write_text(out,encoding='utf-8')
           PY
-
-          if ! grep -qx 'NO_PATCH' /tmp/fix.diff; then
-            git apply --check /tmp/fix.diff
-            git apply /tmp/fix.diff
-            git diff --check
-          fi
+          if ! grep -qx 'NO_PATCH' /tmp/fix.diff; then git apply --check /tmp/fix.diff && git apply /tmp/fix.diff; fi
 
       - name: Verify tests
         run: pytest -q
@@ -191,8 +138,4 @@ Test output:
           git add -A
           git commit -m "feat: implement issue #${ISSUE_NUMBER}"
           git push --set-upstream origin "$branch"
-          gh pr create \
-            --base main \
-            --head "$branch" \
-            --title "feat: ${ISSUE_TITLE}" \
-            --body "## Automated implementation\n\nImplements #${ISSUE_NUMBER}.\n\n### Validation\n- pytest -q passed\n- Changes generated by Groq\n\nPlease review before merging.\n\nCloses #${ISSUE_NUMBER}"
+          gh pr create --base main --head "$branch" --title "feat: ${ISSUE_TITLE}" --body "## Automated implementation\n\nImplements #${ISSUE_NUMBER}.\n\n### Validation\n- pytest -q passed\n- Changes generated by Groq\n\nPlease review before merging.\n\nCloses #${ISSUE_NUMBER}"
