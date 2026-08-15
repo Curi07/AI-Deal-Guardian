@@ -13,4 +13,5 @@ jobs:
   implement:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Groq workflow parsed correctly"
+      - uses: actions/checkout@v4
+      - run: echo "Groq workflow with checkout"
