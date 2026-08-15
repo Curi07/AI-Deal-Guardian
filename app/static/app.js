@@ -144,7 +144,7 @@ function renderDealMemory(deal) {
     document.getElementById('mem-deadline').textContent = deal.timeline.deadline;
     
     document.getElementById('mem-risk').textContent = `${deal.preflight.risk_score}/100`;
-    document.getElementById('mem-confidence').textContent = `${deal.preflight.confidence_score}/100`;
+    document.getElementById('mem-confidence').textContent = `${deal.preflight.confidence}/100`;
     
     populateList('mem-included', deal.scope.deliverables);
     populateList('mem-excluded', deal.scope.exclusions);
@@ -194,10 +194,10 @@ function renderPreflight(deal) {
     document.getElementById('preflight-status').textContent = deal.preflight.status;
     document.getElementById('preflight-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
     document.getElementById('risk-score').textContent = `${deal.preflight.risk_score}/100`;
-    document.getElementById('confidence-score').textContent = `${deal.preflight.confidence_score}/100`;
+    document.getElementById('confidence-score').textContent = `${deal.preflight.confidence}/100`;
     
-    populateList('list-unknowns', deal.preflight.unknowns);
-    populateList('list-blocking-unknowns', deal.preflight.blocking_unknowns);
+    populateList('list-unknowns', deal.unknowns);
+    populateList('list-blocking-unknowns', deal.unknowns.filter(u => u.blocks_quote));
     
     const questionList = document.getElementById('list-questions');
     questionList.innerHTML = '';
