@@ -3,6 +3,7 @@ from typing import Optional
 from app.llm.provider import LLMProvider
 from app.schemas.deal import Deal
 from app.rules.engine import RuleEngine
+from app.rules.review import requires_human_review
 
 class AnalyzeRequest(BaseModel):
     message: str
@@ -47,14 +48,12 @@ Additional Context Provided by User:
 Please extract the deal details according to the schema.
 """
         
-        # 1. Ask LLM to generate the structured Deal
         extracted_deal = self.provider.generate_structured(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             response_model=Deal
         )
         
-        # 2. Overwrite provided commercial/timeline defaults if given explicitly in the request
         if request.budget:
             extracted_deal.commercial.budget = request.budget
         if request.currency:
@@ -62,7 +61,6 @@ Please extract the deal details according to the schema.
         if request.deadline and not extracted_deal.timeline.deadline:
             extracted_deal.timeline.deadline = request.deadline
             
-        # 3. Pass through the Rule Engine to calculate preflight and risks deterministically
         final_deal = self.rule_engine.evaluate(extracted_deal)
         
         return final_deal
@@ -110,10 +108,8 @@ Analyze the scope diff according to the schema.
         
         deal_context = deal.model_dump_json(indent=2)
         
-        # --- STAGE 1.0: Scope Guard ---
         scope_guard_result = self.analyze_scope_guard(deal, message)
         
-        # --- STAGE 1.5: Intent and Context Extraction ---
         class PartialMessageAnalysis(BaseModel):
             intent: IntentAnalysis
             deal_context: DealContextSummary
@@ -136,14 +132,12 @@ Extract the intent and relevant context.
             response_model=PartialMessageAnalysis
         )
         
-        # Combine into authoritative MessageAnalysis
         message_analysis = MessageAnalysis(
             intent=partial_analysis.intent,
             scope_guard=scope_guard_result,
             deal_context=partial_analysis.deal_context
         )
         
-        # --- STAGE 2: Strategy and Response Generation ---
         class Stage2Result(BaseModel):
             strategy: Strategy
             response: ResponseDraft
@@ -175,27 +169,14 @@ Generate the strategy and draft response based on the structured analysis, match
             response_model=Stage2Result
         )
         
-        # Combine and return full ResponseIntelligence
         intelligence = ResponseIntelligence(
             message_analysis=message_analysis,
             strategy=stage2_result.strategy,
             response=stage2_result.response
         )
         
-        # Deterministic Business Rules
-        from app.schemas.analysis import ScopeImpact
-        classification = intelligence.message_analysis.scope_guard.classification
-        
-        # Check for material changes
-        material_change = False
-        for c in intelligence.message_analysis.scope_guard.changed:
-            if c.item.lower() in ["deadline", "budget"]:
-                material_change = True
-                break
-
-        if classification in [ScopeImpact.POTENTIALLY_OUT_OF_SCOPE, ScopeImpact.CONFLICT_WITH_EXCLUSION]:
-            intelligence.response.requires_review = True
-        elif classification == ScopeImpact.IN_SCOPE:
-            intelligence.response.requires_review = material_change
+        intelligence.response.requires_review = requires_human_review(
+            intelligence.message_analysis.scope_guard
+        )
             
         return intelligence
