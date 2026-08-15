@@ -8,6 +8,9 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  PYTHONPATH: .
+
 jobs:
   review:
     if: github.event.pull_request.user.login == 'Curi07' || startsWith(github.event.pull_request.head.ref, 'agent/issue-')
