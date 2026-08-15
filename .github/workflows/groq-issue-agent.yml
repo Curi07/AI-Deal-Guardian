@@ -8,7 +8,7 @@ on:
         required: false
         type: string
   schedule:
-    - cron: '17 * * * *'
+    - cron: '20 * * * *'
 
 permissions:
   contents: write
@@ -63,13 +63,6 @@ jobs:
             echo "has_issue=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_issue=true" >> "$GITHUB_OUTPUT"
-            python - <<'PY'
-          import json
-          from pathlib import Path
-          i=json.loads(Path('/tmp/issue.json').read_text())
-          print(f"ISSUE_NUMBER={i['number']}")
-          print(f"ISSUE_TITLE={i['title']}")
-          PY
           fi
 
       - name: Build repository context
@@ -113,8 +106,6 @@ Rules:
 - Do not invent requirements.
 - Do not merge anything to main.
 - The result must be suitable for a human-reviewed Pull Request.
-
-Repository-specific instructions are below when present.
 '''
           try:
               repo_rules=Path('.ai/coding-agent.md').read_text()
