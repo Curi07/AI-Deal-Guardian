@@ -1,0 +1,70 @@
+name: Groq PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: github.event.pull_request.user.login == 'github-actions[bot]' || startsWith(github.event.pull_request.head.ref, 'agent/issue-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: pytest -q 2>&1 | tee /tmp/pytest.txt
+
+      - name: Review with Groq
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git diff "origin/${{ github.event.pull_request.base.ref }}...HEAD" > /tmp/pr.diff
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          prompt=f'''Review this pull request for AI-Deal-Guardian as a senior engineer.
+Identify correctness bugs, regressions, security issues, missing tests, and violations of the issue scope.
+Prioritize actionable findings. If there are no blocking concerns, say APPROVED WITH NO BLOCKERS.
+Do not propose changes to production secrets or deployment credentials.
+
+PR TITLE:
+{os.environ['PR_TITLE']}
+
+PR BODY:
+{os.environ.get('PR_BODY','')}
+
+DIFF:
+{Path('/tmp/pr.diff').read_text()[:60000]}
+
+TEST OUTPUT:
+{Path('/tmp/pytest.txt').read_text()[-30000:]}
+'''
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a strict senior code reviewer. Be concise and concrete.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':10000}).encode()
+          req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=180) as r: review=json.load(r)['choices'][0]['message']['content']
+          Path('/tmp/review.md').write_text(review,encoding='utf-8')
+          print(review)
+
+      - name: Comment review on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ steps.tests.outcome }}" = "failure" ]; then
+            printf '## Automated Groq review\n\n❌ `pytest -q` failed.\n\n' > /tmp/comment.md
+          else
+            printf '## Automated Groq review\n\n✅ `pytest -q` passed.\n\n' > /tmp/comment.md
+          fi
+          cat /tmp/review.md >> /tmp/comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comment.md
