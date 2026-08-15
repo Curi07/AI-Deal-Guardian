@@ -14,4 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Groq workflow with checkout"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build repository snapshot
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          Path('/tmp/issue.txt').write_text(
+              f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}",
+              encoding='utf-8')
+          PY
