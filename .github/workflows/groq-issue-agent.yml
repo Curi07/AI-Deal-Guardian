@@ -1,78 +1,117 @@
 name: Groq Issue Agent
 
 on:
-  issues:
-    types: [opened, edited]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: write
   pull-requests: write
-  issues: write
+  issues: read
 
 jobs:
   implement:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Snapshot issue and repository
+
+      - name: Collect open issues and repository snapshot
         env:
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          gh issue list --state open --limit 100 --json number,title,body,labels,assignees,url > /tmp/issues.json
           python - <<'PY'
-          import os
+          import json
+          from pathlib import Path
+          issues=json.loads(Path('/tmp/issues.json').read_text())
+          actionable=[i for i in issues if not i['title'].strip().upper().startswith('TEST:')]
+          Path('/tmp/actionable_issues.json').write_text(json.dumps(actionable,indent=2))
+          print(f'Open issues: {len(issues)}')
+          print(f'Actionable issues: {len(actionable)}')
+          for i in actionable: print(f"#{i['number']}: {i['title']}")
+          PY
+          python - <<'PY'
           from pathlib import Path
           excluded={'.git','.venv','venv','__pycache__','.pytest_cache','node_modules'}
           exts={'.py','.html','.css','.js','.json','.yml','.yaml','.md','.txt','.toml','.ini'}
           chunks=[]
           for p in sorted(Path('.').rglob('*')):
-              if p.is_file() and not any(x in excluded for x in p.parts) and p.stat().st_size <= 120000 and p.suffix.lower() in exts:
-                  try: text=p.read_text(encoding='utf-8')
-                  except Exception: continue
-                  chunks.append(f'===== FILE: {p} =====\n{text}\n')
+              if not p.is_file() or any(x in excluded for x in p.parts): continue
+              if p.stat().st_size > 120000 or p.suffix.lower() not in exts: continue
+              try: text=p.read_text(encoding='utf-8')
+              except Exception: continue
+              chunks.append(f'===== FILE: {p} =====\n{text}\n')
           Path('/tmp/repo_snapshot.txt').write_text('\n'.join(chunks),encoding='utf-8')
-          Path('/tmp/issue.txt').write_text(f"TITLE: {os.environ.get('ISSUE_TITLE','')}\n\nBODY:\n{os.environ.get('ISSUE_BODY','')}",encoding='utf-8')
           PY
-      - name: Ask Groq for patch
+
+      - name: Ask Groq to implement actionable issues
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           python - <<'PY'
-          import json,os,urllib.request
+          import json, os, urllib.request
           from pathlib import Path
-          issue=Path('/tmp/issue.txt').read_text(); repo=Path('/tmp/repo_snapshot.txt').read_text()
-          prompt=f'''Implement this GitHub Issue in AI-Deal-Guardian using only the supplied repository snapshot.
-Return ONLY a unified git diff suitable for git apply, with no markdown fences. Return NO_PATCH if unsafe, unclear, unrelated, or requiring production/secrets changes.
-Do not modify workflows, deployment infrastructure, credentials, or secrets. Keep the change focused and preserve tests.
+          issues=Path('/tmp/actionable_issues.json').read_text()
+          repo=Path('/tmp/repo_snapshot.txt').read_text()
+          prompt=f'''You are the implementation engineer for AI-Deal-Guardian.
 
-ISSUE:\n{issue}\n\nREPOSITORY:\n{repo}'''
-          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode()
+Review ALL actionable open GitHub Issues supplied below and implement the requested changes in the repository snapshot.
+
+RULES:
+- Return ONLY a unified git diff suitable for git apply. No markdown fences.
+- If there are no actionable issues, return exactly NO_PATCH.
+- Prioritize correctness and minimal focused changes.
+- Preserve existing behavior unless an issue explicitly requires changing it.
+- Add/update focused tests for every implemented issue.
+- Do not modify .github/workflows, Docker/deployment infrastructure, secrets, credentials, or production configuration.
+- Do not remove existing tests.
+- Do not invent requirements.
+- Never merge to main; changes must be delivered through a PR.
+
+ACTIONABLE OPEN ISSUES:
+{issues}
+
+REPOSITORY SNAPSHOT:
+{repo}
+'''
+          data=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'system','content':'You are a precise senior software engineer. Output only a unified diff or NO_PATCH.'},{'role':'user','content':prompt}],'temperature':0,'max_tokens':50000}).encode()
           req=urllib.request.Request('https://api.groq.com/openai/v1/chat/completions',data=data,headers={'Authorization':f"Bearer {os.environ['GROQ_API_KEY']}",'Content-Type':'application/json'})
           with urllib.request.urlopen(req,timeout=180) as r: out=json.load(r)['choices'][0]['message']['content'].strip()
           Path('/tmp/patch.diff').write_text(out,encoding='utf-8')
+          print(out[:5000])
           PY
+
+      - name: Stop when there is no patch
+        run: |
+          if grep -qx 'NO_PATCH' /tmp/patch.diff; then echo 'No actionable patch.'; exit 0; fi
+
       - name: Apply patch
         run: |
-          test "$(cat /tmp/patch.diff)" != "NO_PATCH"
           git apply --check /tmp/patch.diff
           git apply /tmp/patch.diff
           git diff --check
+
       - name: Run tests
         run: pytest -q
-      - name: Create branch and PR
+
+      - name: Create review branch and PR
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
-          branch="agent/issue-${ISSUE_NUMBER}"
+          branch="agent/issue-batch-${GITHUB_RUN_ID}"
           git switch -c "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "feat: implement issue #${ISSUE_NUMBER}"
+          git commit -m "feat: implement actionable issues"
           git push --set-upstream origin "$branch"
-          gh pr create --base main --head "$branch" --title "feat: ${ISSUE_TITLE}" --body "Implements #${ISSUE_NUMBER}. Automated Groq implementation; pytest passed. Please review before merging."
+          gh pr create --base main --head "$branch" --title "feat: implement actionable issues" --body "Automated implementation of actionable open issues using Groq. pytest passed. Please review before merging."
