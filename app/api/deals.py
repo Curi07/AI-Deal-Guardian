@@ -19,6 +19,9 @@ def get_llm_provider() -> LLMProvider:
         return OpenAIProvider()
     elif provider_type == "gemini":
         return GeminiProvider()
+    elif provider_type == "groq":
+        from app.llm.provider import GroqProvider
+        return GroqProvider()
     else:
         raise ValueError(f"Unsupported LLM provider: {provider_type}")
 

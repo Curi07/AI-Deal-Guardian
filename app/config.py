@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     llm_model: str = "gpt-4.1"
     gemini_model: str = "gemini-3.1-flash-lite"
+    groq_api_key: Optional[str] = None
+    groq_model: str = "openai/gpt-oss-20b"
     database_path: str = "./deals.db"
 
     model_config = SettingsConfigDict(env_file=".env")
