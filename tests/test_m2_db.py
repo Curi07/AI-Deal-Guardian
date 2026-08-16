@@ -6,18 +6,18 @@ from app.db.database import DealRepository
 from app.db.init_db import init_db
 
 from app.config import settings
-settings.database_path = "test_deals.db"
+settings.database_path = "/tmp/test_deals.db"
 
 @pytest.fixture(autouse=True)
 def setup_db():
     # Setup
-    if os.path.exists("test_deals.db"):
-        os.remove("test_deals.db")
+    if os.path.exists("/tmp/test_deals.db"):
+        os.remove("/tmp/test_deals.db")
     init_db()
     yield
     # Teardown
-    if os.path.exists("test_deals.db"):
-        os.remove("test_deals.db")
+    if os.path.exists("/tmp/test_deals.db"):
+        os.remove("/tmp/test_deals.db")
 
 def test_create_and_get_deal():
     repo = DealRepository()
