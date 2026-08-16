@@ -110,21 +110,78 @@ Analyze the scope diff according to the schema.
         
         scope_guard_result = self.analyze_scope_guard(deal, message)
         
+        # Build a flat text representation of the Deal for Stage 1.
+        # Passing deal.model_dump_json() exposes rich objects (Message with id/timestamp/sender,
+        # Requirement with id/description/source/certainty). Groq reproduces those objects in
+        # List[str] fields, causing HTTP 400 tool call validation failures.
+        # A flat text summary removes the structural temptation entirely.
+        lines = []
+        lines.append("PROJECT:")
+        lines.append(f"  Title: {deal.project.title or 'N/A'}")
+        lines.append(f"  Type: {deal.project.type or 'N/A'}")
+        lines.append(f"  Description: {deal.project.description or 'N/A'}")
+        lines.append("")
+        lines.append("COMMERCIAL:")
+        lines.append(f"  Budget: {deal.commercial.budget} {deal.commercial.currency or ''}")
+        lines.append(f"  Deadline: {deal.timeline.deadline or 'N/A'}")
+        lines.append("")
+        lines.append("AGREED SCOPE (Deliverables):")
+        for d in deal.scope.deliverables:
+            lines.append(f"  - {d}")
+        lines.append("")
+        lines.append("EXPLICIT EXCLUSIONS:")
+        for e in deal.scope.exclusions:
+            lines.append(f"  - {e}")
+        lines.append("")
+        lines.append("REQUIREMENTS:")
+        for r in deal.requirements:
+            certainty = r.certainty.value if hasattr(r.certainty, 'value') else r.certainty
+            source = r.source.value if hasattr(r.source, 'value') else r.source
+            lines.append(f"  - [{source}/{certainty}] {r.description}")
+        lines.append("")
+        lines.append("CONVERSATION HISTORY:")
+        for m in deal.messages:
+            lines.append(f"  - {m.sender}: {m.content}")
+        lines.append("")
+        lines.append("DECISIONS:")
+        for dec in deal.decisions:
+            lines.append(f"  - {dec.description}")
+        lines.append("")
+        lines.append("ASSUMPTIONS:")
+        for a in deal.scope.assumptions:
+            lines.append(f"  - {a}")
+        
+        flat_deal_context = "\n".join(lines)
+        
         class PartialMessageAnalysis(BaseModel):
             intent: IntentAnalysis
             deal_context: DealContextSummary
             
-        stage1_system_prompt = """
-You are AI Deal Guardian. Based on a client message, extract the client's intent and isolate the relevant sections of the Deal Memory that pertain to this message.
+        stage1_system_prompt = """\
+You are AI Deal Guardian. Based on a client message, extract the client's intent and isolate \
+the relevant sections of the Deal Memory that pertain to this message.
+
+CRITICAL OUTPUT RULES:
+- relevant_requirements: list of PLAIN TEXT STRINGS describing each relevant requirement. \
+Do NOT return objects, IDs, dicts or nested structures. Each item must be a simple string.
+- relevant_exclusions: list of PLAIN TEXT STRINGS describing each relevant exclusion. \
+Do NOT return objects, IDs, dicts or nested structures.
+- relevant_decisions: list of PLAIN TEXT STRINGS. Do NOT return objects.
+- relevant_assumptions: list of PLAIN TEXT STRINGS. Do NOT return objects.
+- relevant_messages: list of PLAIN TEXT STRINGS quoting each relevant conversation line \
+(e.g. "Client: Can you add a dashboard?"). Do NOT return objects, IDs, timestamps, sender \
+metadata, or nested structures. Each item must be a simple string.
+
+Every field in deal_context MUST contain ONLY plain text strings. Never include dicts or objects.
 """
         stage1_user_prompt = f"""
 === EXISTING DEAL MEMORY ===
-{deal_context}
+{flat_deal_context}
 
 === NEW CLIENT MESSAGE ===
 {message}
 
-Extract the intent and relevant context.
+Extract the intent and relevant context. Remember: all relevant_* fields must be plain text strings only.
 """
         partial_analysis = self.provider.generate_structured(
             system_prompt=stage1_system_prompt,
