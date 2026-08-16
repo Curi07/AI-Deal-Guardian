@@ -101,25 +101,25 @@ class Requirement(BaseModel):
 class Dependency(BaseModel):
     description: str
     status: DependencyStatus = DependencyStatus.UNKNOWN
-    owner: str = "unknown"
+    owner: Optional[str] = "unknown"
 
 class Unknown(BaseModel):
     description: str
-    severity: Severity
-    blocks_quote: bool
+    severity: Severity = Severity.MEDIUM
+    blocks_quote: bool = False
 
 class Risk(BaseModel):
     description: str
-    category: RiskCategory
-    severity: Severity
+    category: RiskCategory = RiskCategory.SCOPE
+    severity: Severity = Severity.MEDIUM
     evidence: List[str] = Field(default_factory=list)
 
 class Question(BaseModel):
-    id: str
+    id: str = ""
     question: str
-    reason: str
-    priority: QuestionPriority
-    blocks_quote: bool
+    reason: Optional[str] = ""
+    priority: QuestionPriority = QuestionPriority.MEDIUM
+    blocks_quote: bool = False
 
 class Decision(BaseModel):
     description: str

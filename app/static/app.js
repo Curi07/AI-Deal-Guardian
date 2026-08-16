@@ -71,7 +71,15 @@ const populateList = (elementId, items) => {
     }
     items.forEach(item => {
         const li = document.createElement('li');
-        li.textContent = typeof item === 'string' ? item : item.item;
+        if (typeof item === 'string') {
+            li.textContent = item;
+        } else if (item && item.description) {
+            li.textContent = item.severity ? `[${item.severity}] ${item.description}` : item.description;
+        } else if (item && item.item) {
+            li.textContent = item.item;
+        } else {
+            li.textContent = JSON.stringify(item);
+        }
         el.appendChild(li);
     });
 };
