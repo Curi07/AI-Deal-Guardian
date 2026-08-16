@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Path
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
@@ -7,6 +8,8 @@ from app.services.extraction import AnalyzeRequest, ExtractionService
 from app.llm.provider import LLMProvider, OpenAIProvider, MockLLMProvider, GeminiProvider
 from app.db.database import DealRepository
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 repo = DealRepository()
@@ -48,8 +51,12 @@ async def analyze_deal(request: AnalyzeRequest):
             "risks": [r.model_dump() for r in deal.risks],
             "questions": [q.model_dump() for q in deal.questions]
         }
+    except ValueError as ve:
+        logger.error(f"[API /analyze] Validation/Parsing error: {ve}", exc_info=True)
+        raise HTTPException(status_code=422, detail=f"Analysis validation failed: {str(ve)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[API /analyze] Unexpected error during deal analysis: {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"LLM Provider error: {str(e)}")
 
 @router.post("", response_model=Dict[str, str])
 async def create_deal(deal: Deal):
@@ -95,8 +102,12 @@ async def analyze_scope(deal_id: str, payload: MessagePayload):
         service = ExtractionService(provider)
         scope_diff = service.analyze_scope_guard(deal, payload.content)
         return scope_diff
+    except ValueError as ve:
+        logger.error(f"[API /scope_guard] Validation/Parsing error for deal {deal_id}: {ve}", exc_info=True)
+        raise HTTPException(status_code=422, detail=f"Scope guard validation failed: {str(ve)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[API /scope_guard] LLM error for deal {deal_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"LLM Provider error: {str(e)}")
 
 @router.post("/{deal_id}/analyze_message", response_model=ResponseIntelligence)
 async def analyze_message(deal_id: str, payload: MessagePayload):
@@ -117,8 +128,12 @@ async def analyze_message(deal_id: str, payload: MessagePayload):
             tone=payload.tone
         )
         return analysis
+    except ValueError as ve:
+        logger.error(f"[API /analyze_message] Validation/Parsing error for deal {deal_id}: {ve}", exc_info=True)
+        raise HTTPException(status_code=422, detail=f"Message analysis validation failed: {str(ve)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[API /analyze_message] LLM error for deal {deal_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"LLM Provider error: {str(e)}")
 
 @router.post("/{deal_id}/reviews", response_model=Dict[str, str])
 async def add_review(deal_id: str, payload: ReviewPayload):

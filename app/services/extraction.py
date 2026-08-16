@@ -31,6 +31,8 @@ CRITICAL INSTRUCTIONS:
 7. Generate actionable, specific questions to resolve unknowns.
 8. Preserve uncertainty. Never convert an inference into a confirmed requirement.
 9. Prefer "unknown" over hallucination.
+10. Keep requirement descriptions, unknowns, risks, and questions concise, clear, and direct (1-2 sentences maximum per item).
+11. Leave decisions, messages, and reviews as empty lists in initial deal extraction.
 
 If a requirement is explicitly stated by the client, source="client", certainty="explicit".
 If you believe a requirement is necessary but not stated, source="ai", certainty="inferred".

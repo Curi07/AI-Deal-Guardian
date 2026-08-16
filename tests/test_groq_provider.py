@@ -39,6 +39,7 @@ def test_groq_provider_success():
     assert "tools" in call_args.kwargs
     assert call_args.kwargs["tools"][0]["type"] == "function"
     assert call_args.kwargs["tool_choice"] == {"type": "function", "function": {"name": "generate_response"}}
+    assert call_args.kwargs["max_tokens"] == 4096
 
 def test_groq_provider_schema_sanitization():
     provider = GroqProvider(api_key="test_key")

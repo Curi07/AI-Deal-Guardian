@@ -34,6 +34,7 @@ def test_gemini_provider_success(mock_client_class):
     call_args = mock_client.models.generate_content.call_args
     assert call_args.kwargs["model"] == "gemini-3.1-flash-lite"
     assert call_args.kwargs["config"].response_mime_type == "application/json"
+    assert call_args.kwargs["config"].max_output_tokens == 4096
 
 @patch('app.llm.provider.genai.Client')
 def test_gemini_provider_schema_sanitization(mock_client_class):
