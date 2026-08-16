@@ -122,11 +122,12 @@ async function loadDashboard() {
         
         deals.forEach(deal => {
             const tr = document.createElement('tr');
+            const dealTitle = (deal.title && deal.title.trim()) || 'Untitled Deal';
             tr.innerHTML = `
-                <td class="table-link">${deal.title}</td>
-                <td>${deal.client}</td>
-                <td>${deal.budget} ${deal.currency}</td>
-                <td>${deal.deadline}</td>
+                <td class="table-link">${dealTitle}</td>
+                <td>${deal.client || 'Unknown'}</td>
+                <td>${deal.budget} ${deal.currency || 'USD'}</td>
+                <td>${deal.deadline || 'TBD'}</td>
                 <td><span class="badge ${getBadgeClass(deal.status)}">${deal.status}</span></td>
             `;
             tr.addEventListener('click', () => loadDeal(deal.id));
@@ -155,7 +156,10 @@ async function loadDeal(id) {
 }
 
 function renderDealMemory(deal) {
-    document.getElementById('mem-title').textContent = deal.project.title;
+    const memTitle = (deal.project && deal.project.title && deal.project.title.trim()) || 
+                     (deal.project && deal.project.description && deal.project.description.trim()) || 
+                     'Untitled Deal';
+    document.getElementById('mem-title').textContent = memTitle;
     document.getElementById('mem-status').textContent = deal.preflight.status;
     document.getElementById('mem-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
     

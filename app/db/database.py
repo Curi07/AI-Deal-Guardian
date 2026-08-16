@@ -84,7 +84,7 @@ class DealRepository:
                 
                 # Extract summary info safely
                 project = data.get("project", {})
-                title = project.get("title", "Untitled Deal")
+                title = (project.get("title") or "").strip() or (project.get("description") or "").strip() or (project.get("type") or "").strip() or "Untitled Deal"
                 client_obj = data.get("client", {})
                 client = client_obj.get("name") or "Unknown"
                 
