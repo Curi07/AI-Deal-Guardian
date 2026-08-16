@@ -23,5 +23,32 @@ def test_unknown_validation():
         severity="high",
         blocks_quote=True
     )
+    assert unk.title == ""  # Default empty for backwards compatibility
+    assert unk.description == "Payment provider not specified"
     assert unk.severity == Severity.HIGH
     assert unk.blocks_quote is True
+
+def test_unknown_with_title():
+    unk = Unknown(
+        title="Proveedor de pagos",
+        description="Definir pasarela de pago (Stripe, Mercado Pago, etc.)",
+        severity=Severity.HIGH,
+        blocks_quote=True
+    )
+    assert unk.title == "Proveedor de pagos"
+    assert unk.description == "Definir pasarela de pago (Stripe, Mercado Pago, etc.)"
+    assert unk.severity == Severity.HIGH
+    assert unk.blocks_quote is True
+
+def test_unknown_json_serialization():
+    unk = Unknown(
+        title="Alcance exacto",
+        description="Detallar entregables incluidos",
+        severity=Severity.MEDIUM
+    )
+    data = unk.model_dump()
+    assert data["title"] == "Alcance exacto"
+    assert data["description"] == "Detallar entregables incluidos"
+    assert data["severity"] == "medium"
+    assert data["blocks_quote"] is False
+

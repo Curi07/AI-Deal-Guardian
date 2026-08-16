@@ -104,6 +104,7 @@ class Dependency(BaseModel):
     owner: Optional[str] = "unknown"
 
 class Unknown(BaseModel):
+    title: str = ""
     description: str
     severity: Severity = Severity.MEDIUM
     blocks_quote: bool = False

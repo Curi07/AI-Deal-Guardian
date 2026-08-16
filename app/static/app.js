@@ -92,6 +92,44 @@ const formatPriorityLabel = (priority) => {
     return priority;
 };
 
+const populateUnknownsList = (elementId, items) => {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.innerHTML = '';
+    if (!items || items.length === 0) {
+        el.innerHTML = '<li><em>Ninguno</em></li>';
+        return;
+    }
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'unknown-card-item';
+        
+        let title = 'Aspecto pendiente';
+        let desc = '';
+        let sev = 'medium';
+        
+        if (typeof item === 'string') {
+            desc = item;
+        } else if (item) {
+            title = (item.title && item.title.trim()) || 'Aspecto pendiente';
+            desc = item.description || item.item || '';
+            sev = item.severity || 'medium';
+        }
+        
+        const sevLabel = formatPriorityLabel(sev);
+        const badgeClass = getBadgeClass(sev);
+        
+        li.innerHTML = `
+            <div class="unknown-header">
+                <span class="unknown-title">${title}</span>
+                <span class="badge ${badgeClass}">${sevLabel}</span>
+            </div>
+            ${desc ? `<p class="unknown-desc">${desc}</p>` : ''}
+        `;
+        el.appendChild(li);
+    });
+};
+
 const populateList = (elementId, items) => {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -256,8 +294,8 @@ function renderPreflight(deal) {
     document.getElementById('risk-score').textContent = `${deal.preflight.risk_score}/100`;
     document.getElementById('confidence-score').textContent = `${Math.round(deal.preflight.confidence * 100)}/100`;
     
-    populateList('list-unknowns', deal.unknowns);
-    populateList('list-blocking-unknowns', deal.unknowns.filter(u => u.blocks_quote));
+    populateUnknownsList('list-unknowns', deal.unknowns);
+    populateUnknownsList('list-blocking-unknowns', deal.unknowns.filter(u => u.blocks_quote));
     
     const questionList = document.getElementById('list-questions');
     questionList.innerHTML = '';
