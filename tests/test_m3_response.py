@@ -44,7 +44,7 @@ def test_m3_price_negotiation_defend_price():
     analysis = service.analyze_contextual_message(deal, "Can you do USD 800?", objective="defend_price")
     assert analysis.message_analysis.intent.primary == "price_negotiation"
     assert analysis.message_analysis.scope_guard.commercial_impact.level == "high"
-    assert analysis.response.requires_review is False
+    assert analysis.response.requires_review is True
 
 def test_m3_price_for_scope_negotiate():
     mock_data = build_mock_response("price_negotiation", "potentially_out_of_scope", "high")
