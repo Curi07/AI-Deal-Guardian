@@ -110,3 +110,36 @@ class DealRepository:
             return deals
         finally:
             conn.close()
+
+    def add_review(self, deal_id: str, status: str, draft: str) -> str:
+        deal = self.get_deal(deal_id)
+        if not deal:
+            raise ValueError(f"Deal {deal_id} not found")
+            
+        from datetime import datetime, timezone
+        from app.schemas.deal import Review, ReviewStatus
+        
+        review_id = f"REV-{uuid.uuid4().hex[:8]}"
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        review = Review(
+            id=review_id,
+            status=ReviewStatus(status),
+            draft=draft,
+            timestamp=timestamp
+        )
+        
+        deal.reviews.append(review)
+        
+        deal_data = deal.model_dump_json()
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE deals SET data = ?, updated_at = ? WHERE id = ?",
+                (deal_data, timestamp, deal_id)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+            
+        return review_id

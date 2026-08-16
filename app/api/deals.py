@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Path
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
-from app.schemas.deal import Deal
+from app.schemas.deal import Deal, ReviewStatus
 from app.schemas.analysis import ResponseIntelligence, ScopeDiff
 from app.services.extraction import AnalyzeRequest, ExtractionService
 from app.llm.provider import LLMProvider, OpenAIProvider, MockLLMProvider, GeminiProvider
@@ -30,6 +30,10 @@ class MessagePayload(BaseModel):
     content: str
     objective: Optional[str] = None
     tone: Optional[str] = "professional"
+
+class ReviewPayload(BaseModel):
+    status: ReviewStatus
+    draft: str
 
 @router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_deal(request: AnalyzeRequest):
@@ -113,6 +117,16 @@ async def analyze_message(deal_id: str, payload: MessagePayload):
             tone=payload.tone
         )
         return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{deal_id}/reviews", response_model=Dict[str, str])
+async def add_review(deal_id: str, payload: ReviewPayload):
+    try:
+        review_id = repo.add_review(deal_id, payload.status, payload.draft)
+        return {"review_id": review_id}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

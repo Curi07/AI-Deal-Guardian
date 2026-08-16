@@ -60,6 +60,10 @@ class DependencyStatus(str, Enum):
     PENDING = "pending"
     UNKNOWN = "unknown"
 
+class ReviewStatus(str, Enum):
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
 # --- Models ---
 class Client(BaseModel):
     name: Optional[str] = None
@@ -137,6 +141,12 @@ class Preflight(BaseModel):
     blocking_unknowns: int = 0
     generated_at: Optional[str] = None
 
+class Review(BaseModel):
+    id: str
+    status: ReviewStatus
+    draft: str
+    timestamp: str
+
 class Deal(BaseModel):
     id: Optional[str] = None
     client: Client = Field(default_factory=Client)
@@ -151,4 +161,5 @@ class Deal(BaseModel):
     questions: List[Question] = Field(default_factory=list)
     decisions: List[Decision] = Field(default_factory=list)
     messages: List[Message] = Field(default_factory=list)
+    reviews: List[Review] = Field(default_factory=list)
     preflight: Preflight = Field(default_factory=Preflight)
