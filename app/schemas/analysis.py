@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import Any, List, Optional
+from pydantic import BaseModel, Field, field_validator
 
 class ScopeImpact(str, Enum):
     IN_SCOPE = "in_scope"
@@ -42,6 +42,36 @@ class DealContextSummary(BaseModel):
     relevant_decisions: List[str] = Field(default_factory=list)
     relevant_assumptions: List[str] = Field(default_factory=list)
     relevant_messages: List[str] = Field(default_factory=list)
+
+    @field_validator("relevant_messages", mode="before")
+    @classmethod
+    def coerce_messages_to_str(cls, v: Any) -> List[str]:
+        """Coerce list items to str. Groq may return Message objects instead of strings."""
+        if not isinstance(v, list):
+            return v
+        result = []
+        for item in v:
+            if isinstance(item, dict):
+                # Extract the most meaningful text field from a Message-like object
+                result.append(item.get("content") or item.get("description") or str(item))
+            else:
+                result.append(str(item))
+        return result
+
+    @field_validator("relevant_requirements", mode="before")
+    @classmethod
+    def coerce_requirements_to_str(cls, v: Any) -> List[str]:
+        """Coerce list items to str. Groq may return Requirement objects instead of strings."""
+        if not isinstance(v, list):
+            return v
+        result = []
+        for item in v:
+            if isinstance(item, dict):
+                # Extract the most meaningful text field from a Requirement-like object
+                result.append(item.get("description") or item.get("content") or str(item))
+            else:
+                result.append(str(item))
+        return result
 
 class MessageAnalysis(BaseModel):
     intent: IntentAnalysis
