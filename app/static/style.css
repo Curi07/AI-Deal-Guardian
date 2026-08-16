@@ -418,3 +418,20 @@ textarea.requires-review {
     border-color: var(--danger);
     background-color: rgba(239, 68, 68, 0.02);
 }
+
+.error-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: var(--danger-color, #ef4444);
+    color: white;
+    padding: 1rem;
+    border-radius: 4px;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: opacity 0.3s ease;
+}
+.error-toast.fade-out {
+    opacity: 0;
+}

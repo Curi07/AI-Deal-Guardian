@@ -42,6 +42,17 @@ const hideLoading = () => {
     document.getElementById('loading-overlay').classList.add('hidden');
 };
 
+const showError = (msg) => {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-toast';
+    errorDiv.textContent = msg;
+    document.body.appendChild(errorDiv);
+    setTimeout(() => {
+        errorDiv.classList.add('fade-out');
+        setTimeout(() => errorDiv.remove(), 300);
+    }, 5000);
+};
+
 const getBadgeClass = (value) => {
     if (!value) return 'neutral';
     const v = value.toLowerCase();
@@ -114,7 +125,7 @@ async function loadDashboard() {
             tbody.appendChild(tr);
         });
     } catch (err) {
-        alert(err.message);
+        showError(err.message);
     }
 }
 
@@ -129,7 +140,7 @@ async function loadDeal(id) {
         renderDealMemory(currentDeal);
         showView('dealMemory');
     } catch (err) {
-        alert(err.message);
+        showError(err.message);
     } finally {
         hideLoading();
     }
@@ -159,7 +170,7 @@ document.getElementById('btn-analyze-deal').addEventListener('click', async () =
     const currency = document.getElementById('deal-currency').value;
     const deadline = document.getElementById('deal-deadline').value;
     
-    if (!brief) return alert('Please enter a brief');
+    if (!brief) return showError('Please enter a brief');
     
     showLoading('Analyzing Deal Parameters...');
     try {
@@ -184,7 +195,7 @@ document.getElementById('btn-analyze-deal').addEventListener('click', async () =
         renderPreflight(currentDeal);
         showView('preflight');
     } catch (err) {
-        alert(err.message);
+        showError(err.message);
     } finally {
         hideLoading();
     }
@@ -225,7 +236,7 @@ document.getElementById('btn-save-deal').addEventListener('click', async () => {
         // Load the deal to go to memory view
         await loadDeal(data.deal_id);
     } catch (err) {
-        alert(err.message);
+        showError(err.message);
     } finally {
         hideLoading();
     }
@@ -237,7 +248,7 @@ document.getElementById('btn-analyze-msg').addEventListener('click', async () =>
     const objective = document.getElementById('msg-objective').value;
     const tone = document.getElementById('msg-tone').value;
     
-    if (!content) return alert('Enter a client message');
+    if (!content) return showError('Enter a client message');
     
     showLoading('Analyzing Scope & Strategy...');
     try {
@@ -256,7 +267,7 @@ document.getElementById('btn-analyze-msg').addEventListener('click', async () =>
         renderAnalysis(intelligence);
         showView('scopeGuard');
     } catch (err) {
-        alert(err.message);
+        showError(err.message);
     } finally {
         hideLoading();
     }
@@ -268,23 +279,54 @@ function renderAnalysis(intelligence) {
     const strategy = intelligence.strategy;
     const response = intelligence.response;
     
+    const classMap = {
+        'in_scope': 'In Scope',
+        'potentially_out_of_scope': 'Scope Change Detected',
+        'conflict_with_exclusion': 'Conflicts with Exclusion',
+        'unclear': 'Needs Clarification'
+    };
+    
+    const intentMap = {
+        'add_feature': 'Add Feature',
+        'request_excluded_service': 'Request Excluded Service',
+        'price_negotiation': 'Price Negotiation',
+        'clarification': 'Clarification',
+        'general_inquiry': 'General Inquiry',
+        'accept_terms': 'Accept Terms'
+    };
+    
     // Scope Diff
-    document.getElementById('diff-classification').textContent = guard.classification;
+    document.getElementById('diff-classification').textContent = classMap[guard.classification] || guard.classification;
     document.getElementById('diff-classification').className = `badge ${getBadgeClass(guard.classification)}`;
     
-    document.getElementById('diff-commercial').textContent = `COMMERCIAL IMPACT: ${guard.commercial_impact.level}`;
-    document.getElementById('diff-commercial').className = `badge ${getBadgeClass(guard.commercial_impact.level)}`;
+    // Commercial Impact
+    document.getElementById('diff-commercial-level').textContent = guard.commercial_impact.level.toUpperCase();
+    document.getElementById('diff-commercial-level').className = `badge ${getBadgeClass(guard.commercial_impact.level)}`;
+    document.getElementById('diff-commercial-reason').textContent = guard.commercial_impact.reason;
+    document.getElementById('diff-commercial-action').textContent = guard.commercial_impact.pricing_action;
+    
+    const toggleSection = (sectionId, arr) => {
+        const el = document.getElementById(sectionId);
+        if (!arr || arr.length === 0) el.classList.add('hidden');
+        else el.classList.remove('hidden');
+    };
     
     populateList('diff-added', guard.added);
+    toggleSection('section-added', guard.added);
+    
     populateChangedList('diff-changed', guard.changed);
+    toggleSection('section-changed', guard.changed);
+    
     populateList('diff-conflicting', guard.conflicting);
+    toggleSection('section-conflicting', guard.conflicting);
+    
     populateList('diff-unchanged', guard.unchanged);
+    toggleSection('section-unchanged', guard.unchanged);
     
     // Strategy
-    document.getElementById('resp-intent').textContent = intent.primary;
+    document.getElementById('resp-intent').textContent = intentMap[intent.primary] || intent.primary;
     document.getElementById('resp-strategy').textContent = strategy.recommended_action;
     populateList('resp-reasoning', strategy.reasoning);
-    document.getElementById('resp-pricing-action').textContent = guard.commercial_impact.pricing_action;
     
     // Draft Response
     const draftTextarea = document.getElementById('resp-draft');
@@ -293,20 +335,48 @@ function renderAnalysis(intelligence) {
     const reviewBadge = document.getElementById('review-badge');
     const approveBtn = document.getElementById('btn-approve-response');
     
+    // Reset review UI state
+    document.getElementById('review-actions').classList.remove('hidden');
+    document.getElementById('review-status-msg').classList.add('hidden');
+    draftTextarea.disabled = false;
+    
     if (response.requires_review) {
         reviewBadge.classList.remove('hidden');
         draftTextarea.classList.add('requires-review');
-        approveBtn.textContent = 'Approve (Review Required)';
     } else {
         reviewBadge.classList.add('hidden');
         draftTextarea.classList.remove('requires-review');
-        approveBtn.textContent = 'Approve & Send';
     }
 }
 
-document.getElementById('btn-approve-response').addEventListener('click', () => {
-    alert("Message Approved! (Sending is not implemented in this MVP)");
-});
+async function submitReview(status) {
+    const draft = document.getElementById('resp-draft').value;
+    showLoading('Submitting Review...');
+    try {
+        const res = await fetch(`/api/deals/${currentDealId}/reviews`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, draft })
+        });
+        
+        if (!res.ok) throw new Error('Failed to submit review');
+        
+        document.getElementById('review-actions').classList.add('hidden');
+        const statusMsg = document.getElementById('review-status-msg');
+        statusMsg.classList.remove('hidden');
+        statusMsg.textContent = status === 'approved' ? '✅ Approved by Human' : '❌ Rejected by Human';
+        statusMsg.style.backgroundColor = status === 'approved' ? 'var(--success-color, #10b981)' : 'var(--danger-color, #ef4444)';
+        statusMsg.style.color = 'white';
+        document.getElementById('resp-draft').disabled = true;
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+document.getElementById('btn-approve-response').addEventListener('click', () => submitReview('approved'));
+document.getElementById('btn-reject-response').addEventListener('click', () => submitReview('rejected'));
 
 // Init
 showView('dashboard');

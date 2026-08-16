@@ -158,11 +158,11 @@
                     
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="msg-objective">Objective</label>
+                            <label for="msg-objective">My Handling Goal</label>
                             <select id="msg-objective">
-                                <option value="defend_price">Defend price</option>
-                                <option value="negotiate_scope" selected>Negotiate scope</option>
-                                <option value="ask_clarification">Ask clarification</option>
+                                <option value="defend_price">Defend original price</option>
+                                <option value="negotiate_scope" selected>Negotiate scope gracefully</option>
+                                <option value="ask_clarification">Ask for clarification</option>
                                 <option value="accept">Accept changes</option>
                             </select>
                         </div>
@@ -191,58 +191,59 @@
             <div class="analysis-grid">
                 <!-- Scope Diff -->
                 <div class="diff-card card">
-                    <h2>Scope Guard</h2>
-                    <div class="diff-meta">
-                        <span id="diff-classification" class="badge"></span>
-                        <span id="diff-commercial" class="badge"></span>
+                    <h2>Change Detection</h2>
+                    <div class="diff-meta mb-2">
+                        <span id="diff-classification" class="badge" style="font-size: 1.1rem; padding: 0.5rem 1rem;"></span>
                     </div>
 
                     <div id="diff-content" class="diff-content">
-                        <div class="diff-section added-section">
+                        <div class="diff-section added-section" id="section-added">
                             <h3>Added</h3>
                             <ul id="diff-added"></ul>
                         </div>
                         
-                        <div class="diff-section changed-section">
+                        <div class="diff-section changed-section" id="section-changed">
                             <h3>Changed</h3>
                             <ul id="diff-changed"></ul>
                         </div>
                         
-                        <div class="diff-section conflicting-section">
+                        <div class="diff-section conflicting-section" id="section-conflicting">
                             <h3>Conflicting</h3>
                             <ul id="diff-conflicting"></ul>
                         </div>
                         
-                        <div class="diff-section unchanged-section">
+                        <div class="diff-section unchanged-section" id="section-unchanged">
                             <h3>Unchanged</h3>
                             <ul id="diff-unchanged"></ul>
                         </div>
                     </div>
+                    
+                    <h3 class="mt-4">Commercial Impact</h3>
+                    <p><strong>Impact Level:</strong> <span id="diff-commercial-level" class="badge"></span></p>
+                    <p><strong>Why it matters:</strong> <span id="diff-commercial-reason"></span></p>
+                    <p><strong>Commercial Action:</strong> <span id="diff-commercial-action"></span></p>
                 </div>
 
                 <!-- Strategy & Response -->
                 <div class="response-card card">
-                    <h2>Strategy</h2>
-                    <div class="mb-2">
-                        <span class="badge neutral" id="resp-intent"></span>
-                        <span class="badge info" id="resp-strategy"></span>
-                    </div>
+                    <h2>Recommendation</h2>
+                    <p><strong>Client Intent:</strong> <span id="resp-intent"></span></p>
+                    <p class="mt-2" style="font-size: 1.1rem;"><strong>Recommended Strategy:</strong> <span id="resp-strategy" style="color: var(--primary-color);"></span></p>
                     
-                    <h3>Reasoning</h3>
+                    <h3 class="mt-4">Reasoning</h3>
                     <ul id="resp-reasoning"></ul>
-                    
-                    <h3>Pricing Action</h3>
-                    <p id="resp-pricing-action"></p>
 
-                    <h2 class="mt-4">Draft Response <span id="review-badge" class="badge review hidden">REQUIRES REVIEW</span></h2>
+                    <h2 class="mt-4">Suggested Draft Response <span id="review-badge" class="badge review hidden">REQUIRES REVIEW</span></h2>
                     
                     <div class="form-group mt-2">
                         <textarea id="resp-draft" rows="8"></textarea>
                     </div>
                     
-                    <div class="actions">
-                        <button id="btn-approve-response" class="btn primary">Approve & Send</button>
+                    <div class="actions" id="review-actions">
+                        <button id="btn-approve-response" class="btn primary">Approve Response</button>
+                        <button id="btn-reject-response" class="btn danger" style="background-color: var(--danger-color); color: white;">Reject Response</button>
                     </div>
+                    <div id="review-status-msg" class="hidden mt-2" style="font-weight: 600; padding: 0.5rem; border-radius: 4px; text-align: center;"></div>
                 </div>
             </div>
         </section>
