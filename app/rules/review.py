@@ -16,6 +16,9 @@ def requires_human_review(scope_diff: ScopeDiff) -> bool:
     }:
         return True
 
+    if scope_diff.commercial_impact.level in {"high", "critical"}:
+        return True
+
     if scope_diff.classification != ScopeImpact.IN_SCOPE:
         return False
 
