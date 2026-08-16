@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,8 +13,9 @@
             <div class="logo">Deal Guardian</div>
         </div>
         <div class="nav-links">
-            <a href="#" id="nav-dashboard" class="active">Dashboard</a>
-            <a href="#" id="nav-new-deal">New Deal</a>
+            <a href="#" id="nav-dashboard" class="active">Panel</a>
+            <a href="#" id="nav-new-deal">Nuevo proyecto</a>
+            <a href="#" id="nav-how-it-works">¿Cómo funciona?</a>
         </div>
     </nav>
 
@@ -23,19 +24,19 @@
         <!-- View: Dashboard -->
         <section id="view-dashboard" class="view active">
             <div class="header-action">
-                <h1>Deals Dashboard</h1>
-                <button id="btn-goto-new" class="btn primary">+ New Deal</button>
+                <h1>Panel de proyectos</h1>
+                <button id="btn-goto-new" class="btn primary">+ Nuevo proyecto</button>
             </div>
             
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Project / Title</th>
-                            <th>Client</th>
-                            <th>Budget</th>
-                            <th>Deadline</th>
-                            <th>Status</th>
+                            <th>Proyecto / Título</th>
+                            <th>Cliente</th>
+                            <th>Presupuesto</th>
+                            <th>Fecha límite</th>
+                            <th>Estado</th>
                         </tr>
                     </thead>
                     <tbody id="deals-table-body">
@@ -47,72 +48,72 @@
 
         <!-- View: New Deal -->
         <section id="view-new-deal" class="view hidden">
-            <h1>Create New Deal</h1>
-            <p>Paste the client brief and parameters below to analyze the deal.</p>
+            <h1>Crear nuevo proyecto</h1>
+            <p>Ingresá el brief del cliente y los parámetros acordados para analizar los riesgos antes de comprometerte.</p>
             
             <div class="card">
                 <div class="form-grid mb-2">
                     <div class="form-group">
-                        <label for="deal-budget">Budget</label>
-                        <input type="number" id="deal-budget" placeholder="e.g. 500">
+                        <label for="deal-budget">Presupuesto</label>
+                        <input type="number" id="deal-budget" placeholder="ej. 5000">
                     </div>
                     <div class="form-group">
-                        <label for="deal-currency">Currency</label>
+                        <label for="deal-currency">Moneda</label>
                         <input type="text" id="deal-currency" placeholder="USD" value="USD">
                     </div>
                     <div class="form-group">
-                        <label for="deal-deadline">Deadline</label>
-                        <input type="text" id="deal-deadline" placeholder="e.g. 10 days">
+                        <label for="deal-deadline">Fecha límite</label>
+                        <input type="text" id="deal-deadline" placeholder="ej. 2024-09-15 o 3 semanas">
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="deal-brief">Client Brief (Message)</label>
-                    <textarea id="deal-brief" rows="6" placeholder="Hi, I need a landing page..."></textarea>
+                    <label for="deal-brief">Brief del cliente (Mensaje o requerimientos)</label>
+                    <textarea id="deal-brief" rows="6" placeholder="Necesito un sitio web con autenticación, dashboard admin, integración Stripe y reportes..."></textarea>
                 </div>
                 
                 <div class="actions">
-                    <button id="btn-analyze-deal" class="btn primary">Analyze Deal</button>
+                    <button id="btn-analyze-deal" class="btn primary">Analizar proyecto</button>
                 </div>
             </div>
         </section>
 
         <!-- View: Deal Preflight (Creation Result) -->
         <section id="view-preflight" class="view hidden">
-            <h1>Deal Preflight</h1>
+            <h1>Pre-evaluación del proyecto</h1>
             
             <div class="card">
                 <div class="header-action mb-2">
-                    <h2>Risk Analysis</h2>
-                    <span id="preflight-status" class="badge">READY</span>
+                    <h2>Análisis de riesgo</h2>
+                    <span id="preflight-status" class="badge">LISTO</span>
                 </div>
                 
                 <div class="form-grid mb-2">
                     <div class="form-group">
-                        <label>RISK SCORE</label>
+                        <label>NIVEL DE RIESGO</label>
                         <h2 id="risk-score">0/100</h2>
                     </div>
                     <div class="form-group">
-                        <label>CONFIDENCE</label>
+                        <label>CONFIANZA</label>
                         <h2 id="confidence-score">0/100</h2>
                     </div>
                 </div>
 
                 <div id="preflight-details">
-                    <h3>Unknowns</h3>
+                    <h3>Aspectos desconocidos</h3>
                     <ul id="list-unknowns"></ul>
                     
-                    <h3>Blocking Unknowns</h3>
+                    <h3>Aspectos críticos pendientes</h3>
                     <ul id="list-blocking-unknowns"></ul>
                     
-                    <h3>Questions to Ask</h3>
+                    <h3>Preguntas para el cliente</h3>
                     <ul id="list-questions"></ul>
                 </div>
             </div>
 
             <div class="actions">
-                <button id="btn-save-deal" class="btn primary">Save & Track Deal</button>
-                <button id="btn-back-new" class="btn secondary">Back to Edit</button>
+                <button id="btn-save-deal" class="btn primary">Guardar y seguir proyecto</button>
+                <button id="btn-back-new" class="btn secondary">Volver a editar</button>
             </div>
         </section>
 
@@ -120,7 +121,7 @@
         <section id="view-deal-memory" class="view hidden">
             <div class="header-action">
                 <div>
-                    <h1><span id="mem-title">Deal Title</span></h1>
+                    <h1><span id="mem-title">Título del proyecto</span></h1>
                     <span id="mem-status" class="badge"></span>
                 </div>
             </div>
@@ -128,55 +129,55 @@
             <div class="memory-grid">
                 <!-- Commercial & Timeline -->
                 <div class="card">
-                    <h2>Parameters</h2>
-                    <p><strong>Budget:</strong> <span id="mem-budget"></span></p>
-                    <p><strong>Deadline:</strong> <span id="mem-deadline"></span></p>
+                    <h2>Parámetros</h2>
+                    <p><strong>Presupuesto:</strong> <span id="mem-budget"></span></p>
+                    <p><strong>Fecha límite:</strong> <span id="mem-deadline"></span></p>
                     
-                    <h3 class="mt-4">Preflight Risk</h3>
-                    <p><strong>Risk Score:</strong> <span id="mem-risk"></span></p>
-                    <p><strong>Confidence:</strong> <span id="mem-confidence"></span></p>
+                    <h3 class="mt-4">Riesgo inicial</h3>
+                    <p><strong>Nivel de riesgo:</strong> <span id="mem-risk"></span></p>
+                    <p><strong>Confianza:</strong> <span id="mem-confidence"></span></p>
                 </div>
 
                 <!-- Scope -->
                 <div class="card">
-                    <h2>Current Scope</h2>
-                    <h3>Deliverables</h3>
+                    <h2>Alcance actual</h2>
+                    <h3>Entregables</h3>
                     <ul id="mem-included"></ul>
                     
-                    <h3>Exclusions</h3>
+                    <h3>Exclusiones explícitas</h3>
                     <ul id="mem-excluded"></ul>
                 </div>
 
                 <!-- New Message Input -->
                 <div class="card" style="grid-column: 1 / -1;">
-                    <h2>New Client Message</h2>
-                    <p>Analyze a new request from the client against the existing Deal Memory.</p>
+                    <h2>Nuevo mensaje del cliente</h2>
+                    <p>Evaluá un nuevo pedido del cliente comparándolo automáticamente contra la Memoria del proyecto.</p>
                     
                     <div class="form-group mt-2">
-                        <textarea id="msg-content" rows="3" placeholder="Can you also add a dashboard?"></textarea>
+                        <textarea id="msg-content" rows="3" placeholder="ej. Btw, necesito que agregues mobile app iOS también. Mismo timeline."></textarea>
                     </div>
                     
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="msg-objective">My Handling Goal</label>
+                            <label for="msg-objective">Objetivo de gestión</label>
                             <select id="msg-objective">
-                                <option value="defend_price">Defend original price</option>
-                                <option value="negotiate_scope" selected>Negotiate scope gracefully</option>
-                                <option value="ask_clarification">Ask for clarification</option>
-                                <option value="accept">Accept changes</option>
+                                <option value="defend_price">Defender precio original</option>
+                                <option value="negotiate_scope" selected>Negociar alcance profesionalmente</option>
+                                <option value="ask_clarification">Pedir aclaraciones</option>
+                                <option value="accept">Aceptar cambios</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="msg-tone">Tone</label>
+                            <label for="msg-tone">Tono</label>
                             <select id="msg-tone">
-                                <option value="professional" selected>Professional</option>
-                                <option value="friendly">Friendly</option>
-                                <option value="firm">Firm</option>
+                                <option value="professional" selected>Profesional</option>
+                                <option value="friendly">Amigable</option>
+                                <option value="firm">Firme</option>
                             </select>
                         </div>
                     </div>
                     
-                    <button id="btn-analyze-msg" class="btn primary mt-2">Analyze Message</button>
+                    <button id="btn-analyze-msg" class="btn primary mt-2">Analizar mensaje</button>
                 </div>
             </div>
         </section>
@@ -184,66 +185,178 @@
         <!-- View: Scope Guard & Response -->
         <section id="view-scope-guard" class="view hidden">
             <div class="header-action">
-                <h1>Response Intelligence</h1>
-                <button id="btn-back-memory" class="btn secondary">Back to Deal</button>
+                <h1>Inteligencia de respuesta</h1>
+                <button id="btn-back-memory" class="btn secondary">Volver al proyecto</button>
             </div>
 
             <div class="analysis-grid">
                 <!-- Scope Diff -->
                 <div class="diff-card card">
-                    <h2>Change Detection</h2>
+                    <h2>Detección de cambios</h2>
                     <div class="diff-meta mb-2">
                         <span id="diff-classification" class="badge" style="font-size: 1.1rem; padding: 0.5rem 1rem;"></span>
                     </div>
 
                     <div id="diff-content" class="diff-content">
                         <div class="diff-section added-section" id="section-added">
-                            <h3>Added</h3>
+                            <h3>Agregado</h3>
                             <ul id="diff-added"></ul>
                         </div>
                         
                         <div class="diff-section changed-section" id="section-changed">
-                            <h3>Changed</h3>
+                            <h3>Modificado</h3>
                             <ul id="diff-changed"></ul>
                         </div>
                         
                         <div class="diff-section conflicting-section" id="section-conflicting">
-                            <h3>Conflicting</h3>
+                            <h3>En conflicto</h3>
                             <ul id="diff-conflicting"></ul>
                         </div>
                         
                         <div class="diff-section unchanged-section" id="section-unchanged">
-                            <h3>Unchanged</h3>
+                            <h3>Sin cambios</h3>
                             <ul id="diff-unchanged"></ul>
                         </div>
                     </div>
                     
-                    <h3 class="mt-4">Commercial Impact</h3>
-                    <p><strong>Impact Level:</strong> <span id="diff-commercial-level" class="badge"></span></p>
-                    <p><strong>Why it matters:</strong> <span id="diff-commercial-reason"></span></p>
-                    <p><strong>Commercial Action:</strong> <span id="diff-commercial-action"></span></p>
+                    <h3 class="mt-4">Impacto comercial</h3>
+                    <p><strong>Nivel de impacto:</strong> <span id="diff-commercial-level" class="badge"></span></p>
+                    <p><strong>Por qué importa:</strong> <span id="diff-commercial-reason"></span></p>
+                    <p><strong>Acción comercial recomendada:</strong> <span id="diff-commercial-action"></span></p>
                 </div>
 
                 <!-- Strategy & Response -->
                 <div class="response-card card">
-                    <h2>Recommendation</h2>
-                    <p><strong>Client Intent:</strong> <span id="resp-intent"></span></p>
-                    <p class="mt-2" style="font-size: 1.1rem;"><strong>Recommended Strategy:</strong> <span id="resp-strategy" style="color: var(--primary-color);"></span></p>
+                    <h2>Recomendación</h2>
+                    <p><strong>Intención del cliente:</strong> <span id="resp-intent"></span></p>
+                    <p class="mt-2" style="font-size: 1.1rem;"><strong>Estrategia recomendada:</strong> <span id="resp-strategy" style="color: var(--primary-color, #6366F1);"></span></p>
                     
-                    <h3 class="mt-4">Reasoning</h3>
+                    <h3 class="mt-4">Razonamiento</h3>
                     <ul id="resp-reasoning"></ul>
 
-                    <h2 class="mt-4">Suggested Draft Response <span id="review-badge" class="badge review hidden">REQUIRES REVIEW</span></h2>
+                    <h2 class="mt-4">Respuesta sugerida <span id="review-badge" class="badge review hidden">REQUIERE REVISIÓN</span></h2>
                     
                     <div class="form-group mt-2">
                         <textarea id="resp-draft" rows="8"></textarea>
                     </div>
                     
                     <div class="actions" id="review-actions">
-                        <button id="btn-approve-response" class="btn primary">Approve Response</button>
-                        <button id="btn-reject-response" class="btn danger" style="background-color: var(--danger-color); color: white;">Reject Response</button>
+                        <button id="btn-approve-response" class="btn primary">Aprobar respuesta</button>
+                        <button id="btn-reject-response" class="btn danger" style="background-color: var(--danger, #EF4444); color: white;">Rechazar respuesta</button>
                     </div>
                     <div id="review-status-msg" class="hidden mt-2" style="font-weight: 600; padding: 0.5rem; border-radius: 4px; text-align: center;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: How It Works -->
+        <section id="view-how-it-works" class="view hidden">
+            <div class="header-action">
+                <div>
+                    <h1>¿Cómo funciona AI Deal Guardian?</h1>
+                    <p class="hero-subtitle">Protegé el alcance y la rentabilidad de tus proyectos antes de aceptar cambios que pueden costarte tiempo y dinero.</p>
+                </div>
+            </div>
+
+            <!-- Problem Statement -->
+            <div class="card mb-3 highlight-card">
+                <h2>¿Por qué existe AI Deal Guardian?</h2>
+                <p>Los cambios de alcance pequeños pueden convertirse rápidamente en horas de trabajo no presupuestadas.</p>
+                <p><strong>AI Deal Guardian</strong> ayuda a freelancers y agencias a detectar esos cambios antes de aceptarlos, evaluar su impacto comercial y responder de manera profesional.</p>
+                <p class="text-highlight">La IA analiza y recomienda. La decisión final siempre queda en manos del usuario.</p>
+            </div>
+
+            <!-- 3 Pillars of Protection -->
+            <h2 class="mt-4 mb-2">¿Qué protege Guardian?</h2>
+            <div class="pillars-grid mb-3">
+                <div class="card pillar-card">
+                    <div class="pillar-icon">🎯</div>
+                    <h3>Alcance</h3>
+                    <p>Detecta cuándo un nuevo pedido excede lo acordado originalmente.</p>
+                </div>
+                <div class="card pillar-card">
+                    <div class="pillar-icon">⏱️</div>
+                    <h3>Tiempo</h3>
+                    <p>Identifica conflictos entre nuevos pedidos y fechas de entrega.</p>
+                </div>
+                <div class="card pillar-card">
+                    <div class="pillar-icon">💰</div>
+                    <h3>Rentabilidad</h3>
+                    <p>Ayuda a evitar trabajo adicional no presupuestado.</p>
+                </div>
+            </div>
+
+            <!-- 7 Step Process -->
+            <h2 class="mt-4 mb-2">El flujo en 7 pasos</h2>
+            <div class="steps-grid mb-3">
+                <div class="step-card card">
+                    <div class="step-badge">1</div>
+                    <div class="step-content">
+                        <h3>Creá el proyecto</h3>
+                        <p>Registrá el presupuesto, la fecha límite y el alcance acordado con tu cliente.</p>
+                    </div>
+                </div>
+                <div class="step-card card">
+                    <div class="step-badge">2</div>
+                    <div class="step-content">
+                        <h3>Analizamos el acuerdo</h3>
+                        <p>Guardian identifica riesgos, información faltante y preguntas que deberías resolver antes de comprometerte.</p>
+                    </div>
+                </div>
+                <div class="step-card card">
+                    <div class="step-badge">3</div>
+                    <div class="step-content">
+                        <h3>Guardamos la memoria del proyecto</h3>
+                        <p>El sistema conserva lo que se acordó originalmente para poder compararlo con futuras solicitudes.</p>
+                    </div>
+                </div>
+                <div class="step-card card">
+                    <div class="step-badge">4</div>
+                    <div class="step-content">
+                        <h3>Analizamos los nuevos mensajes</h3>
+                        <p>Cuando el cliente pide algo nuevo, Guardian compara el pedido con el alcance original.</p>
+                    </div>
+                </div>
+                <div class="step-card card">
+                    <div class="step-badge">5</div>
+                    <div class="step-content">
+                        <h3>Detectamos cambios de alcance</h3>
+                        <p>Identificamos solicitudes que pueden afectar el alcance, el presupuesto o el cronograma.</p>
+                    </div>
+                </div>
+                <div class="step-card card">
+                    <div class="step-badge">6</div>
+                    <div class="step-content">
+                        <h3>Te ayudamos a responder</h3>
+                        <p>Guardian propone una estrategia comercial y genera una respuesta profesional.</p>
+                    </div>
+                </div>
+                <div class="step-card card highlight-step">
+                    <div class="step-badge">7</div>
+                    <div class="step-content">
+                        <h3>Vos tenés la última palabra</h3>
+                        <p><strong>La IA recomienda. El humano decide.</strong></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simple Visual Flow -->
+            <h2 class="mt-4 mb-2">Esquema visual de decisión</h2>
+            <div class="card flow-card">
+                <div class="flow-diagram">
+                    <div class="flow-node">Acuerdo original</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-node">Memoria del proyecto</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-node">Nuevo pedido del cliente</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-node">Comparación</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-node highlight-node">Detección de riesgo</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-node">Recomendación</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-node success-node">Respuesta del freelancer</div>
                 </div>
             </div>
         </section>
@@ -253,7 +366,7 @@
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">
         <div class="spinner"></div>
-        <p id="loading-text">Analyzing...</p>
+        <p id="loading-text">Analizando proyecto...</p>
     </div>
 
     <script src="app.js"></script>

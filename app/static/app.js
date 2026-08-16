@@ -8,21 +8,32 @@ const views = {
     newDeal: document.getElementById('view-new-deal'),
     preflight: document.getElementById('view-preflight'),
     dealMemory: document.getElementById('view-deal-memory'),
-    scopeGuard: document.getElementById('view-scope-guard')
+    scopeGuard: document.getElementById('view-scope-guard'),
+    howItWorks: document.getElementById('view-how-it-works')
 };
 
 const navLinks = {
     dashboard: document.getElementById('nav-dashboard'),
-    newDeal: document.getElementById('nav-new-deal')
+    newDeal: document.getElementById('nav-new-deal'),
+    howItWorks: document.getElementById('nav-how-it-works')
 };
 
 // UI Helpers
 const showView = (viewName) => {
-    Object.values(views).forEach(v => v.classList.add('hidden'));
-    Object.values(navLinks).forEach(l => l.classList.remove('active'));
+    Object.values(views).forEach(v => {
+        if (v) {
+            v.classList.add('hidden');
+            v.classList.remove('active');
+        }
+    });
+    Object.values(navLinks).forEach(l => {
+        if (l) l.classList.remove('active');
+    });
     
-    views[viewName].classList.remove('hidden');
-    views[viewName].classList.add('active');
+    if (views[viewName]) {
+        views[viewName].classList.remove('hidden');
+        views[viewName].classList.add('active');
+    }
     
     if (navLinks[viewName]) {
         navLinks[viewName].classList.add('active');
@@ -33,7 +44,7 @@ const showView = (viewName) => {
     }
 };
 
-const showLoading = (text = 'Analyzing...') => {
+const showLoading = (text = 'Analizando proyecto...') => {
     document.getElementById('loading-text').textContent = text;
     document.getElementById('loading-overlay').classList.remove('hidden');
 };
@@ -56,17 +67,37 @@ const showError = (msg) => {
 const getBadgeClass = (value) => {
     if (!value) return 'neutral';
     const v = value.toLowerCase();
-    if (v.includes('in_scope') || v.includes('low')) return 'success';
-    if (v.includes('out_of_scope') || v.includes('medium')) return 'warning';
-    if (v.includes('conflict') || v.includes('high')) return 'danger';
+    if (v.includes('in_scope') || v.includes('low') || v.includes('ready') || v.includes('listo')) return 'success';
+    if (v.includes('out_of_scope') || v.includes('medium') || v.includes('needs_clarification') || v.includes('aclaracion')) return 'warning';
+    if (v.includes('conflict') || v.includes('high') || v.includes('critical') || v.includes('do_not_quote') || v.includes('no_presupuestar')) return 'danger';
     return 'neutral';
+};
+
+const formatStatusLabel = (status) => {
+    if (!status) return '';
+    const s = status.toLowerCase();
+    if (s === 'ready' || s === 'listo') return 'Listo';
+    if (s === 'needs_clarification' || s === 'requiere_aclaracion') return 'Requiere aclaración';
+    if (s === 'do_not_quote' || s === 'no_presupuestar') return 'No presupuestar';
+    return status;
+};
+
+const formatPriorityLabel = (priority) => {
+    if (!priority) return '';
+    const p = priority.toLowerCase();
+    if (p === 'high') return 'Alta';
+    if (p === 'medium') return 'Media';
+    if (p === 'low') return 'Baja';
+    if (p === 'critical') return 'Crítica';
+    return priority;
 };
 
 const populateList = (elementId, items) => {
     const el = document.getElementById(elementId);
+    if (!el) return;
     el.innerHTML = '';
     if (!items || items.length === 0) {
-        el.innerHTML = '<li><em>None</em></li>';
+        el.innerHTML = '<li><em>Ninguno</em></li>';
         return;
     }
     items.forEach(item => {
@@ -74,7 +105,8 @@ const populateList = (elementId, items) => {
         if (typeof item === 'string') {
             li.textContent = item;
         } else if (item && item.description) {
-            li.textContent = item.severity ? `[${item.severity}] ${item.description}` : item.description;
+            const sev = item.severity ? `[${formatPriorityLabel(item.severity)}] ` : '';
+            li.textContent = `${sev}${item.description}`;
         } else if (item && item.item) {
             li.textContent = item.item;
         } else {
@@ -86,9 +118,10 @@ const populateList = (elementId, items) => {
 
 const populateChangedList = (elementId, items) => {
     const el = document.getElementById(elementId);
+    if (!el) return;
     el.innerHTML = '';
     if (!items || items.length === 0) {
-        el.innerHTML = '<li><em>None</em></li>';
+        el.innerHTML = '<li><em>Ninguno</em></li>';
         return;
     }
     items.forEach(c => {
@@ -99,8 +132,9 @@ const populateChangedList = (elementId, items) => {
 };
 
 // Navigation Listeners
-navLinks.dashboard.addEventListener('click', (e) => { e.preventDefault(); showView('dashboard'); });
-navLinks.newDeal.addEventListener('click', (e) => { e.preventDefault(); showView('newDeal'); });
+if (navLinks.dashboard) navLinks.dashboard.addEventListener('click', (e) => { e.preventDefault(); showView('dashboard'); });
+if (navLinks.newDeal) navLinks.newDeal.addEventListener('click', (e) => { e.preventDefault(); showView('newDeal'); });
+if (navLinks.howItWorks) navLinks.howItWorks.addEventListener('click', (e) => { e.preventDefault(); showView('howItWorks'); });
 document.getElementById('btn-goto-new').addEventListener('click', () => showView('newDeal'));
 document.getElementById('btn-back-new').addEventListener('click', () => showView('newDeal'));
 document.getElementById('btn-back-memory').addEventListener('click', () => showView('dealMemory'));
@@ -109,26 +143,29 @@ document.getElementById('btn-back-memory').addEventListener('click', () => showV
 async function loadDashboard() {
     try {
         const res = await fetch('/api/deals');
-        if (!res.ok) throw new Error('Failed to fetch deals');
+        if (!res.ok) throw new Error('Error al cargar la lista de proyectos');
         const deals = await res.json();
         
         const tbody = document.getElementById('deals-table-body');
         tbody.innerHTML = '';
         
         if (deals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No deals found. Create one!</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No se encontraron proyectos. ¡Creá uno!</td></tr>';
             return;
         }
         
         deals.forEach(deal => {
             const tr = document.createElement('tr');
-            const dealTitle = (deal.title && deal.title.trim()) || 'Untitled Deal';
+            const dealTitle = (deal.title && deal.title.trim()) || 'Proyecto sin título';
+            const clientName = deal.client || 'Desconocido';
+            const statusLabel = formatStatusLabel(deal.status);
+            
             tr.innerHTML = `
                 <td class="table-link">${dealTitle}</td>
-                <td>${deal.client || 'Unknown'}</td>
+                <td>${clientName}</td>
                 <td>${deal.budget} ${deal.currency || 'USD'}</td>
-                <td>${deal.deadline || 'TBD'}</td>
-                <td><span class="badge ${getBadgeClass(deal.status)}">${deal.status}</span></td>
+                <td>${deal.deadline || 'A definir'}</td>
+                <td><span class="badge ${getBadgeClass(deal.status)}">${statusLabel}</span></td>
             `;
             tr.addEventListener('click', () => loadDeal(deal.id));
             tbody.appendChild(tr);
@@ -139,10 +176,10 @@ async function loadDashboard() {
 }
 
 async function loadDeal(id) {
-    showLoading('Loading Deal...');
+    showLoading('Cargando memoria del proyecto...');
     try {
         const res = await fetch(`/api/deals/${id}`);
-        if (!res.ok) throw new Error('Failed to load deal');
+        if (!res.ok) throw new Error('No se pudo cargar el proyecto');
         currentDeal = await res.json();
         currentDealId = id;
         
@@ -158,13 +195,13 @@ async function loadDeal(id) {
 function renderDealMemory(deal) {
     const memTitle = (deal.project && deal.project.title && deal.project.title.trim()) || 
                      (deal.project && deal.project.description && deal.project.description.trim()) || 
-                     'Untitled Deal';
+                     'Proyecto sin título';
     document.getElementById('mem-title').textContent = memTitle;
-    document.getElementById('mem-status').textContent = deal.preflight.status;
+    document.getElementById('mem-status').textContent = formatStatusLabel(deal.preflight.status);
     document.getElementById('mem-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
     
-    document.getElementById('mem-budget').textContent = `${deal.commercial.budget} ${deal.commercial.currency}`;
-    document.getElementById('mem-deadline').textContent = deal.timeline.deadline;
+    document.getElementById('mem-budget').textContent = `${deal.commercial.budget} ${deal.commercial.currency || 'USD'}`;
+    document.getElementById('mem-deadline').textContent = deal.timeline.deadline || 'A definir';
     
     document.getElementById('mem-risk').textContent = `${deal.preflight.risk_score}/100`;
     document.getElementById('mem-confidence').textContent = `${Math.round(deal.preflight.confidence * 100)}/100`;
@@ -182,9 +219,9 @@ document.getElementById('btn-analyze-deal').addEventListener('click', async () =
     const currency = document.getElementById('deal-currency').value;
     const deadline = document.getElementById('deal-deadline').value;
     
-    if (!brief) return showError('Please enter a brief');
+    if (!brief) return showError('Por favor, ingresá el brief o mensaje del cliente');
     
-    showLoading('Analyzing Deal Parameters...');
+    showLoading('Analizando parámetros del proyecto...');
     try {
         const payload = { message: brief };
         if (budget) payload.budget = parseFloat(budget);
@@ -199,7 +236,7 @@ document.getElementById('btn-analyze-deal').addEventListener('click', async () =
         
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.detail || 'Analysis failed');
+            throw new Error(err.detail || 'El análisis del proyecto falló');
         }
         
         const data = await res.json();
@@ -214,7 +251,7 @@ document.getElementById('btn-analyze-deal').addEventListener('click', async () =
 });
 
 function renderPreflight(deal) {
-    document.getElementById('preflight-status').textContent = deal.preflight.status;
+    document.getElementById('preflight-status').textContent = formatStatusLabel(deal.preflight.status);
     document.getElementById('preflight-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
     document.getElementById('risk-score').textContent = `${deal.preflight.risk_score}/100`;
     document.getElementById('confidence-score').textContent = `${Math.round(deal.preflight.confidence * 100)}/100`;
@@ -224,17 +261,22 @@ function renderPreflight(deal) {
     
     const questionList = document.getElementById('list-questions');
     questionList.innerHTML = '';
-    deal.questions.forEach(q => {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>[${q.priority}]</strong> ${q.question}`;
-        questionList.appendChild(li);
-    });
+    if (!deal.questions || deal.questions.length === 0) {
+        questionList.innerHTML = '<li><em>Ninguna</em></li>';
+    } else {
+        deal.questions.forEach(q => {
+            const li = document.createElement('li');
+            const prio = formatPriorityLabel(q.priority);
+            li.innerHTML = `<strong>[${prio}]</strong> ${q.question}`;
+            questionList.appendChild(li);
+        });
+    }
 }
 
 document.getElementById('btn-save-deal').addEventListener('click', async () => {
     if (!currentDeal) return;
     
-    showLoading('Saving Deal...');
+    showLoading('Guardando y registrando proyecto...');
     try {
         const res = await fetch('/api/deals', {
             method: 'POST',
@@ -242,7 +284,7 @@ document.getElementById('btn-save-deal').addEventListener('click', async () => {
             body: JSON.stringify(currentDeal)
         });
         
-        if (!res.ok) throw new Error('Failed to save deal');
+        if (!res.ok) throw new Error('Error al guardar el proyecto');
         const data = await res.json();
         
         // Load the deal to go to memory view
@@ -260,9 +302,9 @@ document.getElementById('btn-analyze-msg').addEventListener('click', async () =>
     const objective = document.getElementById('msg-objective').value;
     const tone = document.getElementById('msg-tone').value;
     
-    if (!content) return showError('Enter a client message');
+    if (!content) return showError('Por favor, ingresá el mensaje del cliente');
     
-    showLoading('Analyzing Scope & Strategy...');
+    showLoading('Analizando cambio de alcance y estrategia...');
     try {
         const res = await fetch(`/api/deals/${currentDealId}/analyze_message`, {
             method: 'POST',
@@ -272,7 +314,7 @@ document.getElementById('btn-analyze-msg').addEventListener('click', async () =>
         
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.detail || 'Message analysis failed');
+            throw new Error(err.detail || 'Error al analizar el mensaje');
         }
         
         const intelligence = await res.json();
@@ -292,19 +334,19 @@ function renderAnalysis(intelligence) {
     const response = intelligence.response;
     
     const classMap = {
-        'in_scope': 'In Scope',
-        'potentially_out_of_scope': 'Scope Change Detected',
-        'conflict_with_exclusion': 'Conflicts with Exclusion',
-        'unclear': 'Needs Clarification'
+        'in_scope': 'Dentro del alcance',
+        'potentially_out_of_scope': 'Cambio de alcance detectado',
+        'conflict_with_exclusion': 'Conflicto con exclusión',
+        'unclear': 'Requiere aclaración'
     };
     
     const intentMap = {
-        'add_feature': 'Add Feature',
-        'request_excluded_service': 'Request Excluded Service',
-        'price_negotiation': 'Price Negotiation',
-        'clarification': 'Clarification',
-        'general_inquiry': 'General Inquiry',
-        'accept_terms': 'Accept Terms'
+        'add_feature': 'Agregar funcionalidad',
+        'request_excluded_service': 'Solicitud de servicio excluido',
+        'price_negotiation': 'Negociación de precio',
+        'clarification': 'Pedido de aclaración',
+        'general_inquiry': 'Consulta general',
+        'accept_terms': 'Aceptar términos'
     };
     
     // Scope Diff
@@ -312,7 +354,14 @@ function renderAnalysis(intelligence) {
     document.getElementById('diff-classification').className = `badge ${getBadgeClass(guard.classification)}`;
     
     // Commercial Impact
-    document.getElementById('diff-commercial-level').textContent = guard.commercial_impact.level.toUpperCase();
+    const impactMap = {
+        'low': 'BAJO',
+        'medium': 'MEDIO',
+        'high': 'ALTO',
+        'critical': 'CRÍTICO'
+    };
+    const lvlKey = (guard.commercial_impact.level || '').toLowerCase();
+    document.getElementById('diff-commercial-level').textContent = impactMap[lvlKey] || (guard.commercial_impact.level || '').toUpperCase();
     document.getElementById('diff-commercial-level').className = `badge ${getBadgeClass(guard.commercial_impact.level)}`;
     document.getElementById('diff-commercial-reason').textContent = guard.commercial_impact.reason;
     document.getElementById('diff-commercial-action').textContent = guard.commercial_impact.pricing_action;
@@ -345,7 +394,6 @@ function renderAnalysis(intelligence) {
     draftTextarea.value = response.draft;
     
     const reviewBadge = document.getElementById('review-badge');
-    const approveBtn = document.getElementById('btn-approve-response');
     
     // Reset review UI state
     document.getElementById('review-actions').classList.remove('hidden');
@@ -363,7 +411,7 @@ function renderAnalysis(intelligence) {
 
 async function submitReview(status) {
     const draft = document.getElementById('resp-draft').value;
-    showLoading('Submitting Review...');
+    showLoading('Registrando aprobación...');
     try {
         const res = await fetch(`/api/deals/${currentDealId}/reviews`, {
             method: 'POST',
@@ -371,17 +419,17 @@ async function submitReview(status) {
             body: JSON.stringify({ status, draft })
         });
         
-        if (!res.ok) throw new Error('Failed to submit review');
+        if (!res.ok) throw new Error('Error al registrar la revisión');
         
         document.getElementById('review-actions').classList.add('hidden');
         const statusMsg = document.getElementById('review-status-msg');
         statusMsg.classList.remove('hidden');
-        statusMsg.textContent = status === 'approved' ? '✅ Approved by Human' : '❌ Rejected by Human';
-        statusMsg.style.backgroundColor = status === 'approved' ? 'var(--success-color, #10b981)' : 'var(--danger-color, #ef4444)';
+        statusMsg.textContent = status === 'approved' ? '✅ Aprobado por humano' : '❌ Rechazado por humano';
+        statusMsg.style.backgroundColor = status === 'approved' ? 'var(--success, #10b981)' : 'var(--danger, #ef4444)';
         statusMsg.style.color = 'white';
         document.getElementById('resp-draft').disabled = true;
     } catch (err) {
-        alert(err.message);
+        showError(err.message);
     } finally {
         hideLoading();
     }
