@@ -181,6 +181,55 @@ def _sanitize_groq_schema(schema: Dict[str, Any], defs: Dict[str, Any] = None) -
         
     return sanitized
 
+
+def _repair_groq_json(text: str) -> str:
+    """Repair JSON where the Groq model has embedded literal control characters
+    (newlines, carriage returns, tabs) inside JSON string values instead of using
+    their escape sequences (\\n, \\r, \\t).
+
+    Groq tool-call responses for long text content (e.g., multi-paragraph drafts)
+    sometimes contain bare 0x0A bytes inside string literals, producing invalid JSON
+    that json.loads() rejects with 'Invalid control character'.
+
+    This function uses a minimal state machine to identify character positions that
+    are inside a JSON string literal and escapes only those control characters there,
+    leaving the JSON structural whitespace untouched.
+    """
+    result: list[str] = []
+    in_string = False
+    escape_next = False
+
+    for ch in text:
+        if escape_next:
+            # Character after a backslash: always literal, don't reprocess.
+            result.append(ch)
+            escape_next = False
+            continue
+
+        if ch == '\\' and in_string:
+            result.append(ch)
+            escape_next = True
+            continue
+
+        if ch == '"':
+            in_string = not in_string
+            result.append(ch)
+            continue
+
+        if in_string:
+            if ch == '\n':
+                result.append('\\n')
+            elif ch == '\r':
+                result.append('\\r')
+            elif ch == '\t':
+                result.append('\\t')
+            else:
+                result.append(ch)
+        else:
+            result.append(ch)
+
+    return ''.join(result)
+
 class GroqProvider(LLMProvider):
     def __init__(self, api_key: str = None, model: str = None):
         self.api_key = api_key or settings.groq_api_key
@@ -247,8 +296,21 @@ class GroqProvider(LLMProvider):
         
         try:
             parsed_data = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Groq sometimes embeds literal newlines inside JSON string values when
+            # generating long text content (e.g., multi-paragraph draft responses).
+            # Attempt a repair pass that escapes control characters inside strings.
+            try:
+                repaired = _repair_groq_json(response_text)
+                parsed_data = json.loads(repaired)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Failed to decode JSON from Groq (original and repaired): {response_text[:500]}"
+                ) from e
+
+        try:
             return response_model(**parsed_data)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to decode JSON from Groq: {response_text}") from e
         except Exception as e:
-            raise ValueError(f"Failed to validate model {response_model.__name__} from Groq output: {response_text}") from e
+            raise ValueError(
+                f"Failed to validate model {response_model.__name__} from Groq output: {response_text[:500]}"
+            ) from e
