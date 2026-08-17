@@ -64,6 +64,12 @@ class ReviewStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
 
+class ProjectStatus(str, Enum):
+    WAITING_MESSAGE = "waiting_message"
+    IN_PROGRESS = "in_progress"
+    REJECTED = "rejected"
+    COMPLETED = "completed"
+
 # --- Models ---
 class Client(BaseModel):
     name: Optional[str] = None
@@ -150,6 +156,7 @@ class Review(BaseModel):
 
 class Deal(BaseModel):
     id: Optional[str] = None
+    status: ProjectStatus = ProjectStatus.WAITING_MESSAGE
     client: Client = Field(default_factory=Client)
     project: Project = Field(default_factory=Project)
     commercial: Commercial = Field(default_factory=Commercial)

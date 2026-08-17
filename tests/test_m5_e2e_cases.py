@@ -214,3 +214,76 @@ def test_case_c_price(mock_generate):
     assert analysis["message_analysis"]["intent"]["primary"] == "price_negotiation"
     assert analysis["response"]["requires_review"] is True 
 
+
+@patch("app.api.deals.get_llm_provider")
+def test_case_deal_status_separation_e2e(mock_get_provider):
+    from app.llm.provider import MockLLMProvider
+    from app.schemas.deal import PreflightStatus, ProjectStatus
+    
+    # 1. Analyze Deal
+    mock_deal_data = {
+        "client": {},
+        "project": {"title": "Plataforma clínica de turnos y pagos"},
+        "commercial": {"budget": 8000, "currency": "USD"},
+        "timeline": {"deadline": "2026-09-30"},
+        "scope": {"deliverables": ["Turnos online", "Historias clínicas básicas", "Stripe"]},
+        "requirements": [],
+        "dependencies": [],
+        "unknowns": [{"title": "Integración Stripe", "description": "Detallar cuentas y comisiones", "severity": "high", "blocks_quote": True}],
+        "risks": [{"description": "Seguridad de datos de pacientes", "severity": "high", "category": "technical", "evidence": []}],
+        "questions": [],
+        "decisions": [],
+        "messages": [],
+        "preflight": {}
+    }
+    mock_get_provider.return_value = MockLLMProvider(mock_response=mock_deal_data)
+    
+    analyze_payload = {
+        "message": "Necesito un sistema para gestión de turnos médicos online, historias clínicas básicas y cobro con Stripe.",
+        "client_name": "Martín Fernández",
+        "client_company": "Clínica NovaSalud",
+        "budget": 8000,
+        "currency": "USD",
+        "deadline": "2026-09-30"
+    }
+    
+    res = client.post("/api/deals/analyze", json=analyze_payload)
+    assert res.status_code == 200
+    deal_analyzed = res.json()["deal"]
+    
+    # Initial project status MUST be waiting_message, Preflight status is computed independently by RuleEngine
+    assert deal_analyzed["status"] == "waiting_message"
+    assert deal_analyzed["client"]["name"] == "Martín Fernández"
+    assert deal_analyzed["client"]["company"] == "Clínica NovaSalud"
+    assert deal_analyzed["preflight"]["status"] == "needs_clarification"
+    
+    # 2. Save Deal
+    res_save = client.post("/api/deals", json=deal_analyzed)
+    assert res_save.status_code == 200
+    deal_id = res_save.json()["deal_id"]
+    
+    # 3. List deals in dashboard: check independent columns
+    res_list = client.get("/api/deals")
+    assert res_list.status_code == 200
+    deals = res_list.json()
+    created_deal = next(d for d in deals if d["id"] == deal_id)
+    assert created_deal["status"] == "waiting_message"
+    assert created_deal["preflight_status"] == "needs_clarification"
+    assert created_deal["client"] == "Martín Fernández"
+    assert created_deal["company"] == "Clínica NovaSalud"
+    
+    # 4. User manually switches project status to in_progress
+    res_patch = client.patch(f"/api/deals/{deal_id}/status", json={"status": "in_progress"})
+    assert res_patch.status_code == 200
+    assert res_patch.json()["status"] == "in_progress"
+    
+    # 5. Check deal memory: project status is in_progress, Preflight is STILL needs_clarification, Risk Score stays identical
+    res_get = client.get(f"/api/deals/{deal_id}")
+    assert res_get.status_code == 200
+    deal_db = res_get.json()
+    assert deal_db["status"] == "in_progress"
+    assert deal_db["preflight"]["status"] == "needs_clarification"
+    assert deal_db["preflight"]["risk_score"] == deal_analyzed["preflight"]["risk_score"]
+
+ 
+

@@ -89,3 +89,66 @@ def test_api_analyze_llm_failure_handling(mock_get_provider):
     response = client.post("/api/deals/analyze", json=payload)
     assert response.status_code == 502
     assert "LLM Provider error" in response.json()["detail"]
+
+
+@patch("app.api.deals.get_llm_provider")
+def test_api_analyze_with_client_fields(mock_get_provider):
+    from app.llm.provider import MockLLMProvider
+    
+    mock_deal_data = {
+        "client": {},
+        "project": {"title": "Clínica Web"},
+        "preflight": {}
+    }
+    mock_get_provider.return_value = MockLLMProvider(mock_response=mock_deal_data)
+    
+    payload = {
+        "message": "Crear sitio web médico",
+        "client_name": "Martín Fernández",
+        "client_company": "Clínica NovaSalud"
+    }
+    
+    response = client.post("/api/deals/analyze", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deal"]["client"]["name"] == "Martín Fernández"
+    assert data["deal"]["client"]["company"] == "Clínica NovaSalud"
+    assert data["deal"]["status"] == "waiting_message"
+
+
+def test_api_patch_deal_status(tmp_path, monkeypatch):
+    from app.db.database import get_connection, DealRepository
+    from app.schemas.deal import Deal, PreflightStatus
+    
+    db_path = tmp_path / "test_api_patch.db"
+    monkeypatch.setattr("app.db.database.settings", type('Settings', (), {'database_path': str(db_path)})())
+    
+    conn = get_connection()
+    conn.execute("CREATE TABLE deals (id TEXT PRIMARY KEY, data TEXT, created_at TEXT, updated_at TEXT)")
+    conn.execute("CREATE TABLE messages (id TEXT PRIMARY KEY, deal_id TEXT, sender TEXT, content TEXT, timestamp TEXT)")
+    conn.commit()
+    conn.close()
+
+    deal = Deal()
+    deal.client.name = "Martín Fernández"
+    deal.preflight.status = PreflightStatus.DO_NOT_QUOTE
+    deal.preflight.risk_score = 90
+    
+    repo = DealRepository()
+    deal_id = repo.create_deal(deal)
+    
+    # 1. Update to in_progress
+    resp = client.patch(f"/api/deals/{deal_id}/status", json={"status": "in_progress"})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "in_progress"
+    
+    deal_db = repo.get_deal(deal_id)
+    assert deal_db.status.value == "in_progress"
+    # Preflight and risk score stay identical
+    assert deal_db.preflight.status == PreflightStatus.DO_NOT_QUOTE
+    assert deal_db.preflight.risk_score == 90
+    
+    # 2. Update to invalid status -> 422
+    resp_invalid = client.patch(f"/api/deals/{deal_id}/status", json={"status": "invalid_status"})
+    assert resp_invalid.status_code == 422
+

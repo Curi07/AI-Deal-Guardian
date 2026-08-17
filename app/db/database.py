@@ -87,6 +87,7 @@ class DealRepository:
                 title = (project.get("title") or "").strip() or (project.get("description") or "").strip() or (project.get("type") or "").strip() or "Untitled Deal"
                 client_obj = data.get("client", {})
                 client = client_obj.get("name") or "Unknown"
+                company = client_obj.get("company") or ""
                 
                 commercial = data.get("commercial", {})
                 budget = commercial.get("budget", 0)
@@ -95,19 +96,46 @@ class DealRepository:
                 timeline = data.get("timeline", {})
                 deadline = timeline.get("deadline", "TBD")
                 
+                # Independent project status and preflight status
+                project_status = data.get("status") or "waiting_message"
                 preflight = data.get("preflight", {})
-                status = preflight.get("status", "UNKNOWN")
+                preflight_status = preflight.get("status", "needs_clarification")
                 
                 deals.append({
                     "id": row["id"],
                     "title": title,
                     "client": client,
+                    "company": company,
                     "budget": budget,
                     "currency": currency,
                     "deadline": deadline,
-                    "status": status
+                    "status": project_status,
+                    "preflight_status": preflight_status
                 })
             return deals
+        finally:
+            conn.close()
+
+    def update_status(self, deal_id: str, status: str) -> None:
+        deal = self.get_deal(deal_id)
+        if not deal:
+            raise ValueError(f"Deal {deal_id} not found")
+            
+        from datetime import datetime, timezone
+        from app.schemas.deal import ProjectStatus
+        
+        deal.status = ProjectStatus(status)
+        
+        deal_data = deal.model_dump_json()
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE deals SET data = ?, updated_at = ? WHERE id = ?",
+                (deal_data, timestamp, deal_id)
+            )
+            conn.commit()
         finally:
             conn.close()
 

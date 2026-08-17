@@ -67,9 +67,9 @@ const showError = (msg) => {
 const getBadgeClass = (value) => {
     if (!value) return 'neutral';
     const v = value.toLowerCase();
-    if (v.includes('in_scope') || v.includes('low') || v.includes('ready') || v.includes('listo')) return 'success';
-    if (v.includes('out_of_scope') || v.includes('medium') || v.includes('needs_clarification') || v.includes('aclaracion')) return 'warning';
-    if (v.includes('conflict') || v.includes('high') || v.includes('critical') || v.includes('do_not_quote') || v.includes('no_presupuestar')) return 'danger';
+    if (v.includes('in_scope') || v.includes('low') || v.includes('ready') || v.includes('listo') || v.includes('completed') || v.includes('finalizado')) return 'success';
+    if (v.includes('out_of_scope') || v.includes('medium') || v.includes('needs_clarification') || v.includes('aclaracion') || v.includes('in_progress') || v.includes('en_curso')) return 'warning';
+    if (v.includes('conflict') || v.includes('high') || v.includes('critical') || v.includes('do_not_quote') || v.includes('no_presupuestar') || v.includes('rejected') || v.includes('rechazado')) return 'danger';
     return 'neutral';
 };
 
@@ -80,6 +80,26 @@ const formatStatusLabel = (status) => {
     if (s === 'needs_clarification' || s === 'requiere_aclaracion') return 'Requiere aclaración';
     if (s === 'do_not_quote' || s === 'no_presupuestar') return 'No presupuestar';
     return status;
+};
+
+const formatProjectStatusLabel = (status) => {
+    if (!status) return 'En espera de mensaje';
+    const s = status.toLowerCase();
+    if (s === 'waiting_message' || s === 'en_espera_de_mensaje') return 'En espera de mensaje';
+    if (s === 'in_progress' || s === 'en_curso') return 'En curso';
+    if (s === 'rejected' || s === 'rechazado') return 'Rechazado';
+    if (s === 'completed' || s === 'finalizado') return 'Finalizado';
+    return status;
+};
+
+const getProjectStatusBadgeClass = (status) => {
+    if (!status) return 'neutral';
+    const s = status.toLowerCase();
+    if (s === 'waiting_message') return 'neutral';
+    if (s === 'in_progress') return 'warning';
+    if (s === 'rejected') return 'danger';
+    if (s === 'completed') return 'success';
+    return 'neutral';
 };
 
 const formatPriorityLabel = (priority) => {
@@ -177,6 +197,32 @@ document.getElementById('btn-goto-new').addEventListener('click', () => showView
 document.getElementById('btn-back-new').addEventListener('click', () => showView('newDeal'));
 document.getElementById('btn-back-memory').addEventListener('click', () => showView('dealMemory'));
 
+// Status change listener
+const statusSelector = document.getElementById('mem-status-select');
+if (statusSelector) {
+    statusSelector.addEventListener('change', async (e) => {
+        const newStatus = e.target.value;
+        if (!currentDealId) return;
+        showLoading('Actualizando estado del proyecto...');
+        try {
+            const res = await fetch(`/api/deals/${currentDealId}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (!res.ok) throw new Error('Error al actualizar el estado del proyecto');
+            if (currentDeal) currentDeal.status = newStatus;
+        } catch (err) {
+            showError(err.message);
+            if (currentDeal && currentDeal.status) {
+                statusSelector.value = currentDeal.status;
+            }
+        } finally {
+            hideLoading();
+        }
+    });
+}
+
 // API Calls
 async function loadDashboard() {
     try {
@@ -188,7 +234,7 @@ async function loadDashboard() {
         tbody.innerHTML = '';
         
         if (deals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No se encontraron proyectos. ¡Creá uno!</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No se encontraron proyectos. ¡Creá uno!</td></tr>';
             return;
         }
         
@@ -196,14 +242,17 @@ async function loadDashboard() {
             const tr = document.createElement('tr');
             const dealTitle = (deal.title && deal.title.trim()) || 'Proyecto sin título';
             const clientName = deal.client || 'Desconocido';
-            const statusLabel = formatStatusLabel(deal.status);
+            const companySub = deal.company ? `<br><span class="text-small" style="color: var(--text-secondary);">${deal.company}</span>` : '<br><span class="text-small" style="color: var(--text-secondary);">Cliente privado</span>';
+            const projectStatusLabel = formatProjectStatusLabel(deal.status);
+            const preflightStatusLabel = formatStatusLabel(deal.preflight_status);
             
             tr.innerHTML = `
                 <td class="table-link">${dealTitle}</td>
-                <td>${clientName}</td>
+                <td><strong>${clientName}</strong>${companySub}</td>
                 <td>${deal.budget} ${deal.currency || 'USD'}</td>
                 <td>${deal.deadline || 'A definir'}</td>
-                <td><span class="badge ${getBadgeClass(deal.status)}">${statusLabel}</span></td>
+                <td><span class="badge ${getProjectStatusBadgeClass(deal.status)}">${projectStatusLabel}</span></td>
+                <td><span class="badge ${getBadgeClass(deal.preflight_status)}">${preflightStatusLabel}</span></td>
             `;
             tr.addEventListener('click', () => loadDeal(deal.id));
             tbody.appendChild(tr);
@@ -235,8 +284,21 @@ function renderDealMemory(deal) {
                      (deal.project && deal.project.description && deal.project.description.trim()) || 
                      'Proyecto sin título';
     document.getElementById('mem-title').textContent = memTitle;
-    document.getElementById('mem-status').textContent = formatStatusLabel(deal.preflight.status);
-    document.getElementById('mem-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
+    
+    // Client info
+    const cName = (deal.client && deal.client.name) ? deal.client.name : 'Desconocido';
+    const cComp = (deal.client && deal.client.company) ? deal.client.company : 'Cliente privado';
+    document.getElementById('mem-client-info').innerHTML = `<strong>Cliente:</strong> ${cName} &bull; <strong>Organización:</strong> ${cComp}`;
+    
+    // Project status selector
+    const sel = document.getElementById('mem-status-select');
+    if (sel) {
+        sel.value = deal.status || 'waiting_message';
+    }
+    
+    // Preflight status badge
+    document.getElementById('mem-preflight-status').textContent = formatStatusLabel(deal.preflight.status);
+    document.getElementById('mem-preflight-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
     
     document.getElementById('mem-budget').textContent = `${deal.commercial.budget} ${deal.commercial.currency || 'USD'}`;
     document.getElementById('mem-deadline').textContent = deal.timeline.deadline || 'A definir';
@@ -252,16 +314,23 @@ function renderDealMemory(deal) {
 
 // Create Deal Flow
 document.getElementById('btn-analyze-deal').addEventListener('click', async () => {
+    const clientName = document.getElementById('deal-client-name').value.trim();
+    const clientCompany = document.getElementById('deal-client-company').value.trim();
     const brief = document.getElementById('deal-brief').value;
     const budget = document.getElementById('deal-budget').value;
     const currency = document.getElementById('deal-currency').value;
     const deadline = document.getElementById('deal-deadline').value;
     
+    if (!clientName) return showError('Por favor, ingresá el nombre del cliente (obligatorio)');
     if (!brief) return showError('Por favor, ingresá el brief o mensaje del cliente');
     
     showLoading('Analizando parámetros del proyecto...');
     try {
-        const payload = { message: brief };
+        const payload = { 
+            message: brief,
+            client_name: clientName,
+            client_company: clientCompany || undefined
+        };
         if (budget) payload.budget = parseFloat(budget);
         if (currency) payload.currency = currency;
         if (deadline) payload.deadline = deadline;

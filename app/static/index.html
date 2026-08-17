@@ -36,7 +36,8 @@
                             <th>Cliente</th>
                             <th>Presupuesto</th>
                             <th>Fecha límite</th>
-                            <th>Estado</th>
+                            <th>Estado del proyecto</th>
+                            <th>Preflight</th>
                         </tr>
                     </thead>
                     <tbody id="deals-table-body">
@@ -49,9 +50,20 @@
         <!-- View: New Deal -->
         <section id="view-new-deal" class="view hidden">
             <h1>Crear nuevo proyecto</h1>
-            <p>Ingresá el brief del cliente y los parámetros acordados para analizar los riesgos antes de comprometerte.</p>
+            <p>Ingresá los datos del cliente, brief y parámetros acordados para analizar los riesgos antes de comprometerte.</p>
             
             <div class="card">
+                <div class="form-grid mb-2">
+                    <div class="form-group">
+                        <label for="deal-client-name">Nombre del cliente *</label>
+                        <input type="text" id="deal-client-name" placeholder="ej. Martín Fernández" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="deal-client-company">Organización / Empresa</label>
+                        <input type="text" id="deal-client-company" placeholder="ej. Clínica NovaSalud (opcional)">
+                    </div>
+                </div>
+
                 <div class="form-grid mb-2">
                     <div class="form-group">
                         <label for="deal-budget">Presupuesto</label>
@@ -122,7 +134,22 @@
             <div class="header-action">
                 <div>
                     <h1><span id="mem-title">Título del proyecto</span></h1>
-                    <span id="mem-status" class="badge"></span>
+                    <p style="margin-bottom: 0.75rem;"><span id="mem-client-info" style="color: var(--text-primary); font-weight: 500;"></span></p>
+                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <label for="mem-status-select" style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 600;">ESTADO DEL PROYECTO:</label>
+                            <select id="mem-status-select" style="padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 600; font-size: 0.875rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--primary); cursor: pointer;">
+                                <option value="waiting_message">En espera de mensaje</option>
+                                <option value="in_progress">En curso</option>
+                                <option value="rejected">Rechazado</option>
+                                <option value="completed">Finalizado</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 600;">PREFLIGHT:</span>
+                            <span id="mem-preflight-status" class="badge"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
 

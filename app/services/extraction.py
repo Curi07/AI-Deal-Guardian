@@ -10,6 +10,8 @@ class AnalyzeRequest(BaseModel):
     budget: Optional[float] = None
     currency: Optional[str] = None
     deadline: Optional[str] = None
+    client_name: Optional[str] = None
+    client_company: Optional[str] = None
 
 class ExtractionService:
     def __init__(self, provider: LLMProvider):
@@ -45,6 +47,8 @@ Client Message:
 {request.message}
 
 Additional Context Provided by User:
+- Client Name: {request.client_name or 'Not provided'}
+- Company: {request.client_company or 'Not provided'}
 - Budget: {request.budget or 'Not provided'}
 - Currency: {request.currency or 'Not provided'}
 - Deadline: {request.deadline or 'Not provided'}
@@ -58,6 +62,10 @@ Please extract the deal details according to the schema.
             response_model=Deal
         )
         
+        if request.client_name:
+            extracted_deal.client.name = request.client_name
+        if request.client_company:
+            extracted_deal.client.company = request.client_company
         if request.budget:
             extracted_deal.commercial.budget = request.budget
         if request.currency:
