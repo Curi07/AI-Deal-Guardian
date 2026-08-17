@@ -152,3 +152,36 @@ def test_api_patch_deal_status(tmp_path, monkeypatch):
     resp_invalid = client.patch(f"/api/deals/{deal_id}/status", json={"status": "invalid_status"})
     assert resp_invalid.status_code == 422
 
+
+def test_api_delete_deal_and_404_handling(tmp_path, monkeypatch):
+    from app.db.database import get_connection, DealRepository
+    from app.schemas.deal import Deal
+    
+    db_path = tmp_path / "test_api_delete.db"
+    monkeypatch.setattr("app.db.database.settings", type('Settings', (), {'database_path': str(db_path)})())
+    
+    conn = get_connection()
+    conn.execute("CREATE TABLE deals (id TEXT PRIMARY KEY, data TEXT, created_at TEXT, updated_at TEXT)")
+    conn.execute("CREATE TABLE messages (id TEXT PRIMARY KEY, deal_id TEXT, sender TEXT, content TEXT, timestamp TEXT)")
+    conn.commit()
+    conn.close()
+
+    deal = Deal()
+    deal.client.name = "Cliente para borrar"
+    repo = DealRepository()
+    deal_id = repo.create_deal(deal)
+
+    # 1. Delete deal via API
+    resp_delete = client.delete(f"/api/deals/{deal_id}")
+    assert resp_delete.status_code == 200
+    assert resp_delete.json()["id"] == deal_id
+
+    # 2. Querying deleted deal returns 404
+    resp_get = client.get(f"/api/deals/{deal_id}")
+    assert resp_get.status_code == 404
+
+    # 3. Deleting non-existent deal returns 404
+    resp_del_again = client.delete(f"/api/deals/{deal_id}")
+    assert resp_del_again.status_code == 404
+
+

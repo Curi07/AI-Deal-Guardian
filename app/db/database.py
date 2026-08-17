@@ -171,3 +171,17 @@ class DealRepository:
             conn.close()
             
         return review_id
+
+    def delete_deal(self, deal_id: str) -> bool:
+        conn = get_connection()
+        try:
+            row = conn.execute("SELECT id FROM deals WHERE id = ?", (deal_id,)).fetchone()
+            if not row:
+                return False
+            conn.execute("DELETE FROM messages WHERE deal_id = ?", (deal_id,))
+            conn.execute("DELETE FROM deals WHERE id = ?", (deal_id,))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+

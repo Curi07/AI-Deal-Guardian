@@ -138,3 +138,53 @@ def test_legacy_deals_without_status_load_safely(tmp_path, monkeypatch):
     assert deals[0]["company"] == ""
 
 
+def test_delete_deal_atomic_cascade_and_isolation(tmp_path, monkeypatch):
+    db_path = tmp_path / "test_delete.db"
+    monkeypatch.setattr("app.db.database.settings", type('Settings', (), {'database_path': str(db_path)})())
+    
+    conn = get_connection()
+    conn.execute("CREATE TABLE deals (id TEXT PRIMARY KEY, data TEXT, created_at TEXT, updated_at TEXT)")
+    conn.execute("CREATE TABLE messages (id TEXT PRIMARY KEY, deal_id TEXT, sender TEXT, content TEXT, timestamp TEXT)")
+    conn.commit()
+    conn.close()
+
+    repo = DealRepository()
+    
+    # Create Deal A and Deal B
+    deal_a = Deal()
+    deal_a.client.name = "Cliente A"
+    deal_a_id = repo.create_deal(deal_a)
+    repo.append_message(deal_a_id, "client", "Mensaje A1")
+    repo.append_message(deal_a_id, "client", "Mensaje A2")
+
+    deal_b = Deal()
+    deal_b.client.name = "Cliente B"
+    deal_b_id = repo.create_deal(deal_b)
+    repo.append_message(deal_b_id, "client", "Mensaje B1")
+
+    # Verify both exist
+    assert len(repo.list_deals()) == 2
+
+    # Delete Deal A
+    deleted = repo.delete_deal(deal_a_id)
+    assert deleted is True
+
+    # Deal A is gone
+    assert repo.get_deal(deal_a_id) is None
+    assert len(repo.list_deals()) == 1
+    assert repo.list_deals()[0]["id"] == deal_b_id
+
+    # Messages for Deal A are gone, but messages for Deal B remain
+    conn = get_connection()
+    msgs_a = conn.execute("SELECT COUNT(*) as c FROM messages WHERE deal_id = ?", (deal_a_id,)).fetchone()["c"]
+    msgs_b = conn.execute("SELECT COUNT(*) as c FROM messages WHERE deal_id = ?", (deal_b_id,)).fetchone()["c"]
+    conn.close()
+
+    assert msgs_a == 0
+    assert msgs_b == 1
+
+    # Deleting non-existent deal returns False
+    assert repo.delete_deal("non-existent-id") is False
+
+
+

@@ -92,6 +92,9 @@
 
         <!-- View: Deal Preflight (Creation Result) -->
         <section id="view-preflight" class="view hidden">
+            <div class="breadcrumb mb-2">
+                <a href="#" id="bc-preflight-dashboard">Panel</a> &rarr; <span>Pre-evaluación del proyecto</span>
+            </div>
             <h1>Pre-evaluación del proyecto</h1>
             
             <div class="card">
@@ -103,11 +106,16 @@
                 <div class="form-grid mb-2">
                     <div class="form-group">
                         <label>NIVEL DE RIESGO</label>
-                        <h2 id="risk-score">0/100</h2>
+                        <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+                            <h2 id="risk-score" style="margin-bottom: 0;">0 / 100</h2>
+                            <span id="risk-level-badge" class="badge">BAJO</span>
+                        </div>
+                        <p id="risk-summary-text" class="text-small mt-2" style="margin-bottom: 0; color: var(--text-secondary);">0 aspectos críticos pendientes</p>
                     </div>
                     <div class="form-group">
-                        <label>CONFIANZA</label>
-                        <h2 id="confidence-score">0/100</h2>
+                        <label>CONFIANZA DEL ANÁLISIS</label>
+                        <h2 id="confidence-score" style="margin-bottom: 0;">0 / 100</h2>
+                        <p class="text-small mt-2" style="margin-bottom: 0; color: var(--text-secondary);">Basado en evidencia del brief</p>
                     </div>
                 </div>
 
@@ -131,24 +139,56 @@
 
         <!-- View: Deal Memory -->
         <section id="view-deal-memory" class="view hidden">
-            <div class="header-action">
-                <div>
-                    <h1><span id="mem-title">Título del proyecto</span></h1>
-                    <p style="margin-bottom: 0.75rem;"><span id="mem-client-info" style="color: var(--text-primary); font-weight: 500;"></span></p>
-                    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <label for="mem-status-select" style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 600;">ESTADO DEL PROYECTO:</label>
-                            <select id="mem-status-select" style="padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 600; font-size: 0.875rem; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--primary); cursor: pointer;">
-                                <option value="waiting_message">En espera de mensaje</option>
-                                <option value="in_progress">En curso</option>
-                                <option value="rejected">Rechazado</option>
-                                <option value="completed">Finalizado</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 600;">PREFLIGHT:</span>
-                            <span id="mem-preflight-status" class="badge"></span>
-                        </div>
+            <div class="breadcrumb mb-2">
+                <a href="#" id="bc-mem-dashboard">Panel</a> &rarr; <span id="bc-mem-title">Proyecto</span>
+            </div>
+
+            <!-- Project Compact Summary Banner -->
+            <div class="card summary-banner mb-3">
+                <div class="summary-top">
+                    <div>
+                        <h1 id="mem-title" style="margin-bottom: 0.25rem;">Título del proyecto</h1>
+                        <p id="mem-client-info" style="margin-bottom: 0.5rem; color: var(--text-primary); font-weight: 500;"></p>
+                    </div>
+                    <div>
+                        <button id="btn-open-delete-modal" class="btn danger-outline" title="Eliminar este proyecto permanentemente">🗑️ Eliminar proyecto</button>
+                    </div>
+                </div>
+                <div class="summary-meta-grid">
+                    <div>
+                        <span class="meta-label">PRESUPUESTO</span>
+                        <span id="mem-meta-budget" class="meta-val">USD 0</span>
+                    </div>
+                    <div>
+                        <span class="meta-label">FECHA LÍMITE</span>
+                        <span id="mem-meta-deadline" class="meta-val">A definir</span>
+                    </div>
+                    <div>
+                        <span class="meta-label">ESTADO DEL PROYECTO</span>
+                        <select id="mem-status-select" class="status-dropdown">
+                            <option value="waiting_message">En espera de mensaje</option>
+                            <option value="in_progress">En curso</option>
+                            <option value="rejected">Rechazado</option>
+                            <option value="completed">Finalizado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="meta-label">PREFLIGHT</span>
+                        <span id="mem-preflight-status" class="badge"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next Action Block -->
+            <div id="next-action-box" class="card next-action-card mb-3">
+                <div class="next-action-header">
+                    <span class="next-action-badge">PRÓXIMA ACCIÓN</span>
+                </div>
+                <div class="next-action-content">
+                    <div id="next-action-icon" class="next-action-icon">🟠</div>
+                    <div>
+                        <h3 id="next-action-title" style="margin: 0 0 0.25rem; font-size: 1.05rem; color: var(--text-primary);">Esperar respuesta del cliente</h3>
+                        <p id="next-action-desc" style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">El proyecto está registrado. Aguardá la respuesta o confirmación del cliente antes de iniciar el desarrollo.</p>
                     </div>
                 </div>
             </div>
@@ -161,7 +201,10 @@
                     <p><strong>Fecha límite:</strong> <span id="mem-deadline"></span></p>
                     
                     <h3 class="mt-4">Riesgo inicial</h3>
-                    <p><strong>Nivel de riesgo:</strong> <span id="mem-risk"></span></p>
+                    <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <p style="margin: 0;"><strong>Nivel de riesgo:</strong> <span id="mem-risk"></span></p>
+                        <span id="mem-risk-badge" class="badge"></span>
+                    </div>
                     <p><strong>Confianza:</strong> <span id="mem-confidence"></span></p>
                 </div>
 
@@ -211,9 +254,26 @@
 
         <!-- View: Scope Guard & Response -->
         <section id="view-scope-guard" class="view hidden">
+            <div class="breadcrumb mb-2">
+                <a href="#" id="bc-sg-dashboard">Panel</a> &rarr; <a href="#" id="bc-sg-deal">Proyecto</a> &rarr; <span>Inteligencia de respuesta</span>
+            </div>
+
+            <!-- Project Context Header -->
+            <div class="card context-banner mb-3">
+                <div class="context-item">
+                    <span class="context-label">PROYECTO</span>
+                    <strong id="sg-context-project" class="context-val">Plataforma clínica</strong>
+                </div>
+                <div class="context-divider"></div>
+                <div class="context-item">
+                    <span class="context-label">CLIENTE</span>
+                    <strong id="sg-context-client" class="context-val">Martín Fernández · Clínica NovaSalud</strong>
+                </div>
+            </div>
+
             <div class="header-action">
                 <h1>Inteligencia de respuesta</h1>
-                <button id="btn-back-memory" class="btn secondary">Volver al proyecto</button>
+                <button id="btn-back-memory" class="btn secondary">← Volver al proyecto</button>
             </div>
 
             <div class="analysis-grid">
@@ -396,6 +456,28 @@
         <p id="loading-text">Analizando proyecto...</p>
     </div>
 
+    <!-- Modal: Confirm Delete Deal -->
+    <div id="modal-delete-deal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>¿Estás seguro de eliminar este proyecto?</h2>
+            </div>
+            <div class="modal-body">
+                <p>Vas a eliminar permanentemente:</p>
+                <div class="delete-deal-info">
+                    <strong id="delete-modal-project-title" style="font-size: 1.1rem; color: var(--text-primary);">Título del proyecto</strong>
+                    <p id="delete-modal-client-info" style="margin: 0.25rem 0 0; color: var(--text-secondary);">Martín Fernández · Clínica NovaSalud</p>
+                </div>
+                <p class="modal-warning">⚠️ Esta acción no se puede deshacer y eliminará todos los mensajes y análisis asociados.</p>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-cancel-delete" class="btn secondary">Cancelar</button>
+                <button id="btn-confirm-delete" class="btn danger" style="background-color: var(--danger); color: white;">Eliminar proyecto</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
+

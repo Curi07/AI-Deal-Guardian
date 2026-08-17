@@ -159,4 +159,18 @@ async def update_deal_status(deal_id: str, payload: UpdateStatusPayload):
         logger.error(f"[API /status] Error updating deal status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/{deal_id}", response_model=Dict[str, str])
+async def delete_deal(deal_id: str):
+    try:
+        deleted = repo.delete_deal(deal_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Deal not found")
+        return {"message": "Deal deleted successfully", "id": deal_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[API /delete] Error deleting deal {deal_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 

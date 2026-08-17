@@ -64,12 +64,50 @@ const showError = (msg) => {
     }, 5000);
 };
 
+const showSuccess = (msg) => {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-toast';
+    successDiv.textContent = msg;
+    document.body.appendChild(successDiv);
+    setTimeout(() => {
+        successDiv.classList.add('fade-out');
+        setTimeout(() => successDiv.remove(), 300);
+    }, 3500);
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return 'A definir';
+    const trimmed = String(dateStr).trim();
+    if (!trimmed) return 'A definir';
+    
+    // Check if it's already in DD/MM/YYYY
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) return trimmed;
+    
+    // Check if it's an ISO format or YYYY-MM-DD
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+        const [, year, month, day] = isoMatch;
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Check Date parseable
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime()) && trimmed.length >= 8 && /\d/.test(trimmed)) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+    
+    return trimmed;
+};
+
 const getBadgeClass = (value) => {
     if (!value) return 'neutral';
     const v = value.toLowerCase();
-    if (v.includes('in_scope') || v.includes('low') || v.includes('ready') || v.includes('listo') || v.includes('completed') || v.includes('finalizado')) return 'success';
-    if (v.includes('out_of_scope') || v.includes('medium') || v.includes('needs_clarification') || v.includes('aclaracion') || v.includes('in_progress') || v.includes('en_curso')) return 'warning';
-    if (v.includes('conflict') || v.includes('high') || v.includes('critical') || v.includes('do_not_quote') || v.includes('no_presupuestar') || v.includes('rejected') || v.includes('rechazado')) return 'danger';
+    if (v.includes('in_scope') || v.includes('low') || v.includes('ready') || v.includes('listo') || v.includes('completed') || v.includes('finalizado') || v.includes('bajo')) return 'success';
+    if (v.includes('out_of_scope') || v.includes('medium') || v.includes('needs_clarification') || v.includes('aclaracion') || v.includes('in_progress') || v.includes('en_curso') || v.includes('medio')) return 'warning';
+    if (v.includes('conflict') || v.includes('high') || v.includes('critical') || v.includes('do_not_quote') || v.includes('no_presupuestar') || v.includes('rejected') || v.includes('rechazado') || v.includes('alto')) return 'danger';
     return 'neutral';
 };
 
@@ -110,6 +148,42 @@ const formatPriorityLabel = (priority) => {
     if (p === 'low') return 'Baja';
     if (p === 'critical') return 'Crítica';
     return priority;
+};
+
+const getRiskLevelInfo = (score) => {
+    if (score >= 70) return { label: 'ALTO', badgeClass: 'danger' };
+    if (score >= 40) return { label: 'MEDIO', badgeClass: 'warning' };
+    return { label: 'BAJO', badgeClass: 'success' };
+};
+
+const getNextAction = (status) => {
+    const s = (status || 'waiting_message').toLowerCase();
+    if (s === 'in_progress' || s === 'en_curso') {
+        return {
+            icon: '🟢',
+            title: 'Proyecto en curso',
+            desc: 'El trabajo se encuentra en desarrollo según el alcance acordado.'
+        };
+    }
+    if (s === 'rejected' || s === 'rechazado') {
+        return {
+            icon: '⚪',
+            title: 'Proyecto rechazado',
+            desc: 'El cliente decidió no avanzar con esta cotización.'
+        };
+    }
+    if (s === 'completed' || s === 'finalizado') {
+        return {
+            icon: '🔵',
+            title: 'Proyecto finalizado',
+            desc: 'El trabajo ha sido entregado y completado exitosamente.'
+        };
+    }
+    return {
+        icon: '🟠',
+        title: 'Esperar respuesta del cliente',
+        desc: 'El proyecto está registrado. Aguardá la respuesta o confirmación del cliente antes de iniciar el desarrollo.'
+    };
 };
 
 const populateUnknownsList = (elementId, items) => {
@@ -197,6 +271,19 @@ document.getElementById('btn-goto-new').addEventListener('click', () => showView
 document.getElementById('btn-back-new').addEventListener('click', () => showView('newDeal'));
 document.getElementById('btn-back-memory').addEventListener('click', () => showView('dealMemory'));
 
+// Breadcrumb listeners
+const bcPreflightDash = document.getElementById('bc-preflight-dashboard');
+if (bcPreflightDash) bcPreflightDash.addEventListener('click', (e) => { e.preventDefault(); showView('dashboard'); });
+
+const bcMemDash = document.getElementById('bc-mem-dashboard');
+if (bcMemDash) bcMemDash.addEventListener('click', (e) => { e.preventDefault(); showView('dashboard'); });
+
+const bcSgDash = document.getElementById('bc-sg-dashboard');
+if (bcSgDash) bcSgDash.addEventListener('click', (e) => { e.preventDefault(); showView('dashboard'); });
+
+const bcSgDeal = document.getElementById('bc-sg-deal');
+if (bcSgDeal) bcSgDeal.addEventListener('click', (e) => { e.preventDefault(); showView('dealMemory'); });
+
 // Status change listener
 const statusSelector = document.getElementById('mem-status-select');
 if (statusSelector) {
@@ -211,12 +298,74 @@ if (statusSelector) {
                 body: JSON.stringify({ status: newStatus })
             });
             if (!res.ok) throw new Error('Error al actualizar el estado del proyecto');
-            if (currentDeal) currentDeal.status = newStatus;
+            if (currentDeal) {
+                currentDeal.status = newStatus;
+                updateNextActionBox(newStatus);
+            }
+            showSuccess(`✓ Estado actualizado a ${formatProjectStatusLabel(newStatus)}`);
         } catch (err) {
             showError(err.message);
             if (currentDeal && currentDeal.status) {
                 statusSelector.value = currentDeal.status;
             }
+        } finally {
+            hideLoading();
+        }
+    });
+}
+
+function updateNextActionBox(status) {
+    const action = getNextAction(status);
+    const iconEl = document.getElementById('next-action-icon');
+    const titleEl = document.getElementById('next-action-title');
+    const descEl = document.getElementById('next-action-desc');
+    if (iconEl) iconEl.textContent = action.icon;
+    if (titleEl) titleEl.textContent = action.title;
+    if (descEl) descEl.textContent = action.desc;
+}
+
+// Modal Delete Deal Logic
+const modalDelete = document.getElementById('modal-delete-deal');
+const btnOpenDeleteModal = document.getElementById('btn-open-delete-modal');
+const btnCancelDelete = document.getElementById('btn-cancel-delete');
+const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+
+if (btnOpenDeleteModal) {
+    btnOpenDeleteModal.addEventListener('click', () => {
+        if (!currentDeal) return;
+        const pTitle = (currentDeal.project && currentDeal.project.title && currentDeal.project.title.trim()) || 'Proyecto sin título';
+        const cName = (currentDeal.client && currentDeal.client.name) ? currentDeal.client.name : 'Desconocido';
+        const cComp = (currentDeal.client && currentDeal.client.company) ? currentDeal.client.company : 'Cliente privado';
+        
+        document.getElementById('delete-modal-project-title').textContent = pTitle;
+        document.getElementById('delete-modal-client-info').textContent = `${cName} · ${cComp}`;
+        modalDelete.classList.remove('hidden');
+    });
+}
+
+if (btnCancelDelete) {
+    btnCancelDelete.addEventListener('click', () => {
+        modalDelete.classList.add('hidden');
+    });
+}
+
+if (btnConfirmDelete) {
+    btnConfirmDelete.addEventListener('click', async () => {
+        if (!currentDealId) return;
+        showLoading('Eliminando proyecto...');
+        try {
+            const res = await fetch(`/api/deals/${currentDealId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Error al eliminar el proyecto');
+            
+            modalDelete.classList.add('hidden');
+            currentDeal = null;
+            currentDealId = null;
+            showSuccess('✓ Proyecto eliminado correctamente');
+            showView('dashboard');
+        } catch (err) {
+            showError(err.message);
         } finally {
             hideLoading();
         }
@@ -245,12 +394,13 @@ async function loadDashboard() {
             const companySub = deal.company ? `<br><span class="text-small" style="color: var(--text-secondary);">${deal.company}</span>` : '<br><span class="text-small" style="color: var(--text-secondary);">Cliente privado</span>';
             const projectStatusLabel = formatProjectStatusLabel(deal.status);
             const preflightStatusLabel = formatStatusLabel(deal.preflight_status);
+            const formattedDeadline = formatDate(deal.deadline);
             
             tr.innerHTML = `
                 <td class="table-link">${dealTitle}</td>
                 <td><strong>${clientName}</strong>${companySub}</td>
                 <td>${deal.budget} ${deal.currency || 'USD'}</td>
-                <td>${deal.deadline || 'A definir'}</td>
+                <td>${formattedDeadline}</td>
                 <td><span class="badge ${getProjectStatusBadgeClass(deal.status)}">${projectStatusLabel}</span></td>
                 <td><span class="badge ${getBadgeClass(deal.preflight_status)}">${preflightStatusLabel}</span></td>
             `;
@@ -266,7 +416,10 @@ async function loadDeal(id) {
     showLoading('Cargando memoria del proyecto...');
     try {
         const res = await fetch(`/api/deals/${id}`);
-        if (!res.ok) throw new Error('No se pudo cargar el proyecto');
+        if (!res.ok) {
+            if (res.status === 404) throw new Error('Este proyecto ya no existe.');
+            throw new Error('No se pudo cargar el proyecto');
+        }
         currentDeal = await res.json();
         currentDealId = id;
         
@@ -285,10 +438,21 @@ function renderDealMemory(deal) {
                      'Proyecto sin título';
     document.getElementById('mem-title').textContent = memTitle;
     
+    // Breadcrumb title
+    const bcTitle = document.getElementById('bc-mem-title');
+    if (bcTitle) bcTitle.textContent = memTitle;
+    
     // Client info
     const cName = (deal.client && deal.client.name) ? deal.client.name : 'Desconocido';
     const cComp = (deal.client && deal.client.company) ? deal.client.company : 'Cliente privado';
-    document.getElementById('mem-client-info').innerHTML = `<strong>Cliente:</strong> ${cName} &bull; <strong>Organización:</strong> ${cComp}`;
+    document.getElementById('mem-client-info').innerHTML = `<strong>${cName}</strong> &bull; ${cComp}`;
+    
+    // Meta values in summary banner
+    const metaBudget = document.getElementById('mem-meta-budget');
+    if (metaBudget) metaBudget.textContent = `${deal.commercial.budget || 0} ${deal.commercial.currency || 'USD'}`;
+    
+    const metaDeadline = document.getElementById('mem-meta-deadline');
+    if (metaDeadline) metaDeadline.textContent = formatDate(deal.timeline.deadline);
     
     // Project status selector
     const sel = document.getElementById('mem-status-select');
@@ -300,11 +464,21 @@ function renderDealMemory(deal) {
     document.getElementById('mem-preflight-status').textContent = formatStatusLabel(deal.preflight.status);
     document.getElementById('mem-preflight-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
     
-    document.getElementById('mem-budget').textContent = `${deal.commercial.budget} ${deal.commercial.currency || 'USD'}`;
-    document.getElementById('mem-deadline').textContent = deal.timeline.deadline || 'A definir';
+    // Update Next action box
+    updateNextActionBox(deal.status || 'waiting_message');
     
-    document.getElementById('mem-risk').textContent = `${deal.preflight.risk_score}/100`;
-    document.getElementById('mem-confidence').textContent = `${Math.round(deal.preflight.confidence * 100)}/100`;
+    // Detailed Parameters
+    document.getElementById('mem-budget').textContent = `${deal.commercial.budget || 0} ${deal.commercial.currency || 'USD'}`;
+    document.getElementById('mem-deadline').textContent = formatDate(deal.timeline.deadline);
+    
+    document.getElementById('mem-risk').textContent = `${deal.preflight.risk_score} / 100`;
+    const riskInfo = getRiskLevelInfo(deal.preflight.risk_score);
+    const memRiskBadge = document.getElementById('mem-risk-badge');
+    if (memRiskBadge) {
+        memRiskBadge.textContent = riskInfo.label;
+        memRiskBadge.className = `badge ${riskInfo.badgeClass}`;
+    }
+    document.getElementById('mem-confidence').textContent = `${Math.round(deal.preflight.confidence * 100)} / 100`;
     
     populateList('mem-included', deal.scope.deliverables);
     populateList('mem-excluded', deal.scope.exclusions);
@@ -360,8 +534,24 @@ document.getElementById('btn-analyze-deal').addEventListener('click', async () =
 function renderPreflight(deal) {
     document.getElementById('preflight-status').textContent = formatStatusLabel(deal.preflight.status);
     document.getElementById('preflight-status').className = `badge ${getBadgeClass(deal.preflight.status)}`;
-    document.getElementById('risk-score').textContent = `${deal.preflight.risk_score}/100`;
-    document.getElementById('confidence-score').textContent = `${Math.round(deal.preflight.confidence * 100)}/100`;
+    
+    const riskScore = deal.preflight.risk_score || 0;
+    document.getElementById('risk-score').textContent = `${riskScore} / 100`;
+    
+    const riskInfo = getRiskLevelInfo(riskScore);
+    const riskBadge = document.getElementById('risk-level-badge');
+    if (riskBadge) {
+        riskBadge.textContent = riskInfo.label;
+        riskBadge.className = `badge ${riskInfo.badgeClass}`;
+    }
+    
+    const blockingCount = (deal.unknowns || []).filter(u => u.blocks_quote).length;
+    const riskSummaryText = document.getElementById('risk-summary-text');
+    if (riskSummaryText) {
+        riskSummaryText.textContent = `${blockingCount} aspecto${blockingCount === 1 ? '' : 's'} crítico${blockingCount === 1 ? '' : 's'} pendiente${blockingCount === 1 ? '' : 's'}`;
+    }
+    
+    document.getElementById('confidence-score').textContent = `${Math.round(deal.preflight.confidence * 100)} / 100`;
     
     populateUnknownsList('list-unknowns', deal.unknowns);
     populateUnknownsList('list-blocking-unknowns', deal.unknowns.filter(u => u.blocks_quote));
@@ -394,6 +584,7 @@ document.getElementById('btn-save-deal').addEventListener('click', async () => {
         if (!res.ok) throw new Error('Error al guardar el proyecto');
         const data = await res.json();
         
+        showSuccess('✓ Proyecto guardado correctamente');
         // Load the deal to go to memory view
         await loadDeal(data.deal_id);
     } catch (err) {
@@ -439,6 +630,22 @@ function renderAnalysis(intelligence) {
     const intent = intelligence.message_analysis.intent;
     const strategy = intelligence.strategy;
     const response = intelligence.response;
+    
+    // Populate Context Banner in Scope Guard
+    if (currentDeal) {
+        const pTitle = (currentDeal.project && currentDeal.project.title && currentDeal.project.title.trim()) || 'Proyecto sin título';
+        const cName = (currentDeal.client && currentDeal.client.name) ? currentDeal.client.name : 'Desconocido';
+        const cComp = (currentDeal.client && currentDeal.client.company) ? currentDeal.client.company : 'Cliente privado';
+        
+        const ctxProj = document.getElementById('sg-context-project');
+        if (ctxProj) ctxProj.textContent = pTitle;
+        
+        const ctxClient = document.getElementById('sg-context-client');
+        if (ctxClient) ctxClient.textContent = `${cName} · ${cComp}`;
+        
+        const bcSgDealLink = document.getElementById('bc-sg-deal');
+        if (bcSgDealLink) bcSgDealLink.textContent = pTitle;
+    }
     
     const classMap = {
         'in_scope': 'Dentro del alcance',
@@ -535,6 +742,8 @@ async function submitReview(status) {
         statusMsg.style.backgroundColor = status === 'approved' ? 'var(--success, #10b981)' : 'var(--danger, #ef4444)';
         statusMsg.style.color = 'white';
         document.getElementById('resp-draft').disabled = true;
+        
+        showSuccess(status === 'approved' ? '✓ Respuesta aprobada y guardada' : '✓ Respuesta rechazada');
     } catch (err) {
         showError(err.message);
     } finally {
