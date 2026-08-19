@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field
 
 # --- Enums ---
@@ -154,8 +154,18 @@ class Review(BaseModel):
     draft: str
     timestamp: str
 
+class DealRevision(BaseModel):
+    version: str
+    timestamp: str
+    action: str = "scope_update"
+    source: str = "human"
+    summary: Optional[str] = None
+    changed_items: List[str] = Field(default_factory=list)
+    snapshot: Optional[Dict[str, Any]] = None
+
 class Deal(BaseModel):
     id: Optional[str] = None
+    version: str = "1.0"
     status: ProjectStatus = ProjectStatus.WAITING_MESSAGE
     client: Client = Field(default_factory=Client)
     project: Project = Field(default_factory=Project)
@@ -170,4 +180,5 @@ class Deal(BaseModel):
     decisions: List[Decision] = Field(default_factory=list)
     messages: List[Message] = Field(default_factory=list)
     reviews: List[Review] = Field(default_factory=list)
+    revisions: List[DealRevision] = Field(default_factory=list)
     preflight: Preflight = Field(default_factory=Preflight)

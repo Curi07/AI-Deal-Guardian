@@ -9,6 +9,11 @@ class ScopeImpact(str, Enum):
     UNCLEAR = "unclear"
     NOT_APPLICABLE = "not_applicable"
 
+class StrategyMode(str, Enum):
+    UPSELL = "upsell"
+    TRADEOFF = "tradeoff"
+    FIRM_BOUNDARY = "firm_boundary"
+
 class IntentAnalysis(BaseModel):
     primary: str
     secondary: Optional[str] = None
@@ -81,6 +86,7 @@ class MessageAnalysis(BaseModel):
 class Strategy(BaseModel):
     objective: str
     recommended_action: str
+    strategy_mode: Optional[StrategyMode] = None
     reasoning: List[str] = Field(default_factory=list)
     key_points: List[str] = Field(default_factory=list)
 

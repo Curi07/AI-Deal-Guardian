@@ -20,6 +20,8 @@ env_*/
 !.env.example
 *.pem
 *.key
+*.pub
+vps_key*
 *credentials*
 *secret*
 

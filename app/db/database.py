@@ -100,6 +100,7 @@ class DealRepository:
                 project_status = data.get("status") or "waiting_message"
                 preflight = data.get("preflight", {})
                 preflight_status = preflight.get("status", "needs_clarification")
+                version = data.get("version", "1.0")
                 
                 deals.append({
                     "id": row["id"],
@@ -110,7 +111,8 @@ class DealRepository:
                     "currency": currency,
                     "deadline": deadline,
                     "status": project_status,
-                    "preflight_status": preflight_status
+                    "preflight_status": preflight_status,
+                    "version": version
                 })
             return deals
         finally:
@@ -171,6 +173,113 @@ class DealRepository:
             conn.close()
             
         return review_id
+
+    def apply_revision(
+        self,
+        deal_id: str,
+        added_deliverables: Optional[List[str]] = None,
+        removed_deliverables: Optional[List[str]] = None,
+        removed_exclusions: Optional[List[str]] = None,
+        added_exclusions: Optional[List[str]] = None,
+        budget: Optional[float] = None,
+        deadline: Optional[str] = None,
+        action: str = "client_accepted_change",
+        summary: Optional[str] = None
+    ) -> Deal:
+        deal = self.get_deal(deal_id)
+        if not deal:
+            raise ValueError(f"Deal {deal_id} not found")
+
+        from datetime import datetime, timezone
+        from app.schemas.deal import DealRevision
+
+        # Capture snapshot of the current state before applying changes
+        previous_version = deal.version or "1.0"
+        previous_snapshot = json.loads(deal.model_dump_json())
+
+        # Increment version (e.g., "1.0" -> "1.1", "1.1" -> "1.2")
+        try:
+            parts = previous_version.split(".")
+            if len(parts) == 2:
+                major = int(parts[0])
+                minor = int(parts[1])
+                new_version = f"{major}.{minor + 1}"
+            else:
+                new_version = f"{previous_version}.1"
+        except Exception:
+            new_version = "1.1"
+
+        changed_items: List[str] = []
+
+        if added_deliverables:
+            for item in added_deliverables:
+                cleaned = item.strip()
+                if cleaned and cleaned not in deal.scope.deliverables:
+                    deal.scope.deliverables.append(cleaned)
+                    changed_items.append(f"+ Added deliverable: {cleaned}")
+                # If it was in exclusions, remove it so it's no longer excluded
+                matching_exclusions = [e for e in deal.scope.exclusions if e.strip().lower() == cleaned.lower()]
+                for ex in matching_exclusions:
+                    deal.scope.exclusions.remove(ex)
+                    changed_items.append(f"- Removed from exclusions: {ex}")
+
+        if removed_deliverables:
+            for item in removed_deliverables:
+                matching = [d for d in deal.scope.deliverables if d.strip().lower() == item.strip().lower()]
+                for d in matching:
+                    deal.scope.deliverables.remove(d)
+                    changed_items.append(f"- Removed deliverable: {d}")
+
+        if removed_exclusions:
+            for item in removed_exclusions:
+                matching = [e for e in deal.scope.exclusions if e.strip().lower() == item.strip().lower()]
+                for ex in matching:
+                    deal.scope.exclusions.remove(ex)
+                    changed_items.append(f"- Removed exclusion: {ex}")
+
+        if added_exclusions:
+            for item in added_exclusions:
+                cleaned = item.strip()
+                if cleaned and cleaned not in deal.scope.exclusions:
+                    deal.scope.exclusions.append(cleaned)
+                    changed_items.append(f"+ Added exclusion: {cleaned}")
+
+        if budget is not None:
+            old_budget = deal.commercial.budget
+            deal.commercial.budget = budget
+            changed_items.append(f"Budget updated from {old_budget} to {budget}")
+
+        if deadline is not None:
+            old_deadline = deal.timeline.deadline
+            deal.timeline.deadline = deadline
+            changed_items.append(f"Deadline updated from {old_deadline} to {deadline}")
+
+        timestamp = datetime.now(timezone.utc).isoformat()
+        revision = DealRevision(
+            version=previous_version,
+            timestamp=timestamp,
+            action=action,
+            source="human",
+            summary=summary or f"Updated deal to v{new_version}",
+            changed_items=changed_items,
+            snapshot=previous_snapshot
+        )
+
+        deal.revisions.append(revision)
+        deal.version = new_version
+
+        deal_data = deal.model_dump_json()
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE deals SET data = ?, updated_at = ? WHERE id = ?",
+                (deal_data, timestamp, deal_id)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return deal
 
     def delete_deal(self, deal_id: str) -> bool:
         conn = get_connection()

@@ -147,7 +147,10 @@
             <div class="card summary-banner mb-3">
                 <div class="summary-top">
                     <div>
-                        <h1 id="mem-title" style="margin-bottom: 0.25rem;">Título del proyecto</h1>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+                            <h1 id="mem-title" style="margin-bottom: 0;">Título del proyecto</h1>
+                            <span id="mem-version-badge" class="version-badge">v1.0</span>
+                        </div>
                         <p id="mem-client-info" style="margin-bottom: 0.5rem; color: var(--text-primary); font-weight: 500;"></p>
                     </div>
                     <div>
@@ -216,6 +219,14 @@
                     
                     <h3>Exclusiones explícitas</h3>
                     <ul id="mem-excluded"></ul>
+                </div>
+
+                <!-- Revisions History (#4) -->
+                <div class="card" style="grid-column: 1 / -1;" id="section-revisions-history">
+                    <h2>Historial de Versiones del Acuerdo</h2>
+                    <ul id="mem-revisions-list" class="revisions-history-list">
+                        <li><em>Versión base v1.0 inicial</em></li>
+                    </ul>
                 </div>
 
                 <!-- New Message Input -->
@@ -316,7 +327,27 @@
                 <div class="response-card card">
                     <h2>Recomendación</h2>
                     <p><strong>Intención del cliente:</strong> <span id="resp-intent"></span></p>
-                    <p class="mt-2" style="font-size: 1.1rem;"><strong>Estrategia recomendada:</strong> <span id="resp-strategy" style="color: var(--primary-color, #6366F1);"></span></p>
+
+                    <!-- Strategy Selector (#3) -->
+                    <div class="strategy-selector-container mb-3">
+                        <label style="font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Estrategia Comercial (Seleccionable)</label>
+                        <div class="strategy-buttons-grid">
+                            <button type="button" class="btn-strategy" data-mode="upsell" id="btn-strat-upsell" title="Incorporar como nueva fase con presupuesto y plazo adicionales">
+                                <span class="strategy-name">🚀 Upsell / Fase 2</span>
+                                <span class="strategy-desc">Aceptar como trabajo adicional sujeto a nuevo presupuesto y plazo.</span>
+                            </button>
+                            <button type="button" class="btn-strategy" data-mode="tradeoff" id="btn-strat-tradeoff" title="Aceptar a cambio de retirar o simplificar otro alcance">
+                                <span class="strategy-name">⚖️ Trade-off</span>
+                                <span class="strategy-desc">Compensar reduciendo o sustituyendo alcance existente.</span>
+                            </button>
+                            <button type="button" class="btn-strategy" data-mode="firm_boundary" id="btn-strat-firm" title="Mantener estrictamente el alcance y presupuesto acordados">
+                                <span class="strategy-name">🛡️ Límite firme</span>
+                                <span class="strategy-desc">Mantener acuerdo original para cumplir presupuesto y plazo.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p class="mt-2" style="font-size: 1.1rem;"><strong>Acción recomendada:</strong> <span id="resp-strategy" style="color: var(--primary-color, #6366F1);"></span></p>
                     
                     <h3 class="mt-4">Razonamiento</h3>
                     <ul id="resp-reasoning"></ul>
@@ -332,120 +363,174 @@
                         <button id="btn-reject-response" class="btn danger" style="background-color: var(--danger, #EF4444); color: white;">Rechazar respuesta</button>
                     </div>
                     <div id="review-status-msg" class="hidden mt-2" style="font-weight: 600; padding: 0.5rem; border-radius: 4px; text-align: center;"></div>
+
+                    <!-- Client Accepted Scope Change Flow (#4) -->
+                    <div id="accept-change-box" class="accept-change-box hidden mt-3">
+                        <div class="accept-change-header">
+                            <div>
+                                <strong style="color: var(--success); font-size: 0.95rem;">🤝 Acuerdo del cliente</strong>
+                                <p style="margin: 0.2rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">¿El cliente aceptó la propuesta? Actualizá la Memoria del proyecto con la nueva versión.</p>
+                            </div>
+                            <button id="btn-open-accept-change-modal" class="btn primary" style="background-color: var(--success); border-color: var(--success); white-space: nowrap;">
+                                📝 Cliente aceptó el cambio &rarr; Actualizar Deal
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- View: How It Works -->
+        <!-- View: How It Works (Rediseño Completo Orientado a Principiantes) -->
         <section id="view-how-it-works" class="view hidden">
-            <div class="header-action">
-                <div>
-                    <h1>¿Cómo funciona AI Deal Guardian?</h1>
-                    <p class="hero-subtitle">Protegé el alcance y la rentabilidad de tus proyectos antes de aceptar cambios que pueden costarte tiempo y dinero.</p>
+            <div class="how-it-works-hero mb-4">
+                <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Cómo se usa</h1>
+                <p class="hero-subtitle" style="font-size: 1.1rem; color: var(--text-secondary);">
+                    No necesitás experiencia como freelancer ni conocimientos de IA.
+                </p>
+            </div>
+
+            <!-- Onboarding 5-Step Timeline -->
+            <div class="onboarding-container mb-4">
+
+                <!-- PASO 1 -->
+                <div class="card onboarding-step-card mb-3">
+                    <div class="onboarding-step-badge">1</div>
+                    <div class="onboarding-step-body">
+                        <h2 class="onboarding-step-title">1. Contale qué acordaste con tu cliente</h2>
+                        <p class="onboarding-step-desc">
+                            Escribí qué vas a hacer, cuánto te van a pagar y cuándo deberías entregarlo.
+                        </p>
+                        <div class="onboarding-example-box">
+                            <span class="example-tag">EJEMPLO</span>
+                            <p class="example-text">"Voy a crear una página web por USD 1.000 y entregarla en 10 días."</p>
+                        </div>
+                        <p class="onboarding-ux-note">
+                            💡 <strong>Para qué sirve:</strong> Esto le permite a AI Deal Guardian entender cuál es el acuerdo original.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PASO 2 -->
+                <div class="card onboarding-step-card mb-3">
+                    <div class="onboarding-step-badge">2</div>
+                    <div class="onboarding-step-body">
+                        <h2 class="onboarding-step-title">2. Guardá el acuerdo</h2>
+                        <p class="onboarding-step-desc">
+                            La aplicación guarda esta información para poder compararla con los próximos pedidos del cliente.
+                        </p>
+                        <div class="onboarding-concept-box">
+                            <span class="concept-icon">🧠</span>
+                            <p class="concept-text"><strong>Pensalo como una memoria de lo que prometiste:</strong> no se olvida nada de lo hablado al inicio.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASO 3 -->
+                <div class="card onboarding-step-card mb-3">
+                    <div class="onboarding-step-badge">3</div>
+                    <div class="onboarding-step-body">
+                        <h2 class="onboarding-step-title">3. Pegá el nuevo mensaje del cliente</h2>
+                        <p class="onboarding-step-desc">
+                            Cuando el cliente te pida algo nuevo, copiá su mensaje y analizalo.
+                        </p>
+                        <div class="onboarding-example-box client-msg">
+                            <span class="example-tag client-tag">MENSAJE DEL CLIENTE</span>
+                            <p class="example-text">"¿Podrías agregar también un panel de administración?"</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASO 4 -->
+                <div class="card onboarding-step-card mb-3">
+                    <div class="onboarding-step-badge">4</div>
+                    <div class="onboarding-step-body">
+                        <h2 class="onboarding-step-title">4. Descubrí qué cambió</h2>
+                        <p class="onboarding-step-desc">
+                            AI Deal Guardian compara el nuevo pedido con lo que habían acordado.
+                        </p>
+                        
+                        <div class="comparison-results-grid">
+                            <div class="comparison-item">
+                                <span class="comp-question">¿Estaba incluido?</span>
+                                <span class="comp-answer danger-ans">❌ No</span>
+                            </div>
+                            <div class="comparison-item">
+                                <span class="comp-question">¿Qué cambió?</span>
+                                <span class="comp-answer neutral-ans">➕ Se agregó un panel de administración</span>
+                            </div>
+                            <div class="comparison-item">
+                                <span class="comp-question">¿Qué impacto tiene?</span>
+                                <span class="comp-answer warning-ans">⚠️ Alto</span>
+                            </div>
+                            <div class="comparison-item">
+                                <span class="comp-question">¿Qué conviene hacer?</span>
+                                <span class="comp-answer info-ans">💬 Renegociar</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASO 5 -->
+                <div class="card onboarding-step-card mb-3">
+                    <div class="onboarding-step-badge">5</div>
+                    <div class="onboarding-step-body">
+                        <h2 class="onboarding-step-title">5. Elegí cómo responder</h2>
+                        <p class="onboarding-step-desc">
+                            La aplicación te ayuda a preparar una respuesta, pero vos decidís qué hacer.
+                        </p>
+                        
+                        <div class="options-visual-grid mb-3">
+                            <div class="option-card">
+                                <div class="option-icon">💼</div>
+                                <strong class="option-name">Cobrarlo aparte</strong>
+                                <span class="option-sub">Aceptar como trabajo y presupuesto extra.</span>
+                            </div>
+                            <div class="option-card">
+                                <div class="option-icon">⚖️</div>
+                                <strong class="option-name">Cambiarlo por otra tarea</strong>
+                                <span class="option-sub">Compensar reduciendo o cambiando otra parte.</span>
+                            </div>
+                            <div class="option-card">
+                                <div class="option-icon">🛡️</div>
+                                <strong class="option-name">Mantener el acuerdo original</strong>
+                                <span class="option-sub">Cumplir con el presupuesto y plazo pactados.</span>
+                            </div>
+                        </div>
+
+                        <p class="mb-2" style="font-size: 0.95rem; color: var(--text-primary);">
+                            Revisá la respuesta y decidí antes de enviarla.
+                        </p>
+
+                        <div class="onboarding-quote-card">
+                            <span class="quote-icon">✨</span>
+                            <p class="quote-text">"AI Deal Guardian te ayuda a decidir. No decide por vos."</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Bloque Final: En pocas palabras -->
+            <div class="card summary-recap-card mb-4">
+                <h2>En pocas palabras</h2>
+                <div class="recap-flow-list mb-3">
+                    <div class="recap-item"><span>1️⃣</span> <p>Vos contás qué acordaste.</p></div>
+                    <div class="recap-item"><span>2️⃣</span> <p>El cliente hace un pedido.</p></div>
+                    <div class="recap-item"><span>3️⃣</span> <p>AI Deal Guardian te muestra qué cambió y qué impacto puede tener.</p></div>
+                    <div class="recap-item"><span>4️⃣</span> <p>Vos elegís cómo responder.</p></div>
+                </div>
+
+                <div class="recap-cta-action">
+                    <button id="btn-how-to-new-deal" class="btn primary" style="font-size: 1.05rem; padding: 0.85rem 1.75rem;">
+                        Probar AI Deal Guardian &rarr;
+                    </button>
                 </div>
             </div>
 
-            <!-- Problem Statement -->
-            <div class="card mb-3 highlight-card">
-                <h2>¿Por qué existe AI Deal Guardian?</h2>
-                <p>Los cambios de alcance pequeños pueden convertirse rápidamente en horas de trabajo no presupuestadas.</p>
-                <p><strong>AI Deal Guardian</strong> ayuda a freelancers y agencias a detectar esos cambios antes de aceptarlos, evaluar su impacto comercial y responder de manera profesional.</p>
-                <p class="text-highlight">La IA analiza y recomienda. La decisión final siempre queda en manos del usuario.</p>
-            </div>
-
-            <!-- 3 Pillars of Protection -->
-            <h2 class="mt-4 mb-2">¿Qué protege Guardian?</h2>
-            <div class="pillars-grid mb-3">
-                <div class="card pillar-card">
-                    <div class="pillar-icon">🎯</div>
-                    <h3>Alcance</h3>
-                    <p>Detecta cuándo un nuevo pedido excede lo acordado originalmente.</p>
-                </div>
-                <div class="card pillar-card">
-                    <div class="pillar-icon">⏱️</div>
-                    <h3>Tiempo</h3>
-                    <p>Identifica conflictos entre nuevos pedidos y fechas de entrega.</p>
-                </div>
-                <div class="card pillar-card">
-                    <div class="pillar-icon">💰</div>
-                    <h3>Rentabilidad</h3>
-                    <p>Ayuda a evitar trabajo adicional no presupuestado.</p>
-                </div>
-            </div>
-
-            <!-- 7 Step Process -->
-            <h2 class="mt-4 mb-2">El flujo en 7 pasos</h2>
-            <div class="steps-grid mb-3">
-                <div class="step-card card">
-                    <div class="step-badge">1</div>
-                    <div class="step-content">
-                        <h3>Creá el proyecto</h3>
-                        <p>Registrá el presupuesto, la fecha límite y el alcance acordado con tu cliente.</p>
-                    </div>
-                </div>
-                <div class="step-card card">
-                    <div class="step-badge">2</div>
-                    <div class="step-content">
-                        <h3>Analizamos el acuerdo</h3>
-                        <p>Guardian identifica riesgos, información faltante y preguntas que deberías resolver antes de comprometerte.</p>
-                    </div>
-                </div>
-                <div class="step-card card">
-                    <div class="step-badge">3</div>
-                    <div class="step-content">
-                        <h3>Guardamos la memoria del proyecto</h3>
-                        <p>El sistema conserva lo que se acordó originalmente para poder compararlo con futuras solicitudes.</p>
-                    </div>
-                </div>
-                <div class="step-card card">
-                    <div class="step-badge">4</div>
-                    <div class="step-content">
-                        <h3>Analizamos los nuevos mensajes</h3>
-                        <p>Cuando el cliente pide algo nuevo, Guardian compara el pedido con el alcance original.</p>
-                    </div>
-                </div>
-                <div class="step-card card">
-                    <div class="step-badge">5</div>
-                    <div class="step-content">
-                        <h3>Detectamos cambios de alcance</h3>
-                        <p>Identificamos solicitudes que pueden afectar el alcance, el presupuesto o el cronograma.</p>
-                    </div>
-                </div>
-                <div class="step-card card">
-                    <div class="step-badge">6</div>
-                    <div class="step-content">
-                        <h3>Te ayudamos a responder</h3>
-                        <p>Guardian propone una estrategia comercial y genera una respuesta profesional.</p>
-                    </div>
-                </div>
-                <div class="step-card card highlight-step">
-                    <div class="step-badge">7</div>
-                    <div class="step-content">
-                        <h3>Vos tenés la última palabra</h3>
-                        <p><strong>La IA recomienda. El humano decide.</strong></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Simple Visual Flow -->
-            <h2 class="mt-4 mb-2">Esquema visual de decisión</h2>
-            <div class="card flow-card">
-                <div class="flow-diagram">
-                    <div class="flow-node">Acuerdo original</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-node">Memoria del proyecto</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-node">Nuevo pedido del cliente</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-node">Comparación</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-node highlight-node">Detección de riesgo</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-node">Recomendación</div>
-                    <div class="flow-arrow">↓</div>
-                    <div class="flow-node success-node">Respuesta del freelancer</div>
-                </div>
-            </div>
+            <!-- Footnote / Nota de idioma -->
+            <p class="footnote-note text-center" style="font-size: 0.8rem; color: var(--text-secondary); opacity: 0.85; margin-bottom: 2rem;">
+                ℹ️ Nota: Actualmente el análisis del MVP utiliza ejemplos principalmente en inglés. Una futura versión podrá trabajar de forma nativa en múltiples idiomas.
+            </p>
         </section>
 
     </main>
@@ -473,6 +558,43 @@
             <div class="modal-actions">
                 <button id="btn-cancel-delete" class="btn secondary">Cancelar</button>
                 <button id="btn-confirm-delete" class="btn danger" style="background-color: var(--danger); color: white;">Eliminar proyecto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Apply Scope Revision (#4) -->
+    <div id="modal-apply-revision" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 540px;">
+            <div class="modal-header">
+                <h2>Actualizar Memoria del Proyecto</h2>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.9rem; margin-bottom: 1rem;">Se creará una nueva versión del acuerdo preservando la versión anterior intacta en el historial de revisiones.</p>
+                
+                <div class="form-group mb-2">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">NUEVOS ENTREGABLES A AGREGAR (separados por coma)</label>
+                    <textarea id="rev-added-deliverables" rows="2" placeholder="ej. Admin Dashboard, Panel de reportes"></textarea>
+                </div>
+                
+                <div class="form-grid mb-2">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">NUEVO PRESUPUESTO TOTAL</label>
+                        <input type="number" id="rev-new-budget" placeholder="ej. 1500" />
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">NUEVA FECHA LÍMITE</label>
+                        <input type="text" id="rev-new-deadline" placeholder="ej. 2026-10-15" />
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">MOTIVO / RESUMEN DEL CAMBIO</label>
+                    <input type="text" id="rev-summary" placeholder="ej. Cliente aprobó Fase 2 de Admin Dashboard" />
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-cancel-revision" class="btn secondary">Cancelar</button>
+                <button id="btn-confirm-revision" class="btn primary" style="background-color: var(--success); border-color: var(--success);">✓ Confirmar y Actualizar Memoria</button>
             </div>
         </div>
     </div>

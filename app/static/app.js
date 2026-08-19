@@ -1,6 +1,7 @@
 // State
 let currentDeal = null;
 let currentDealId = null;
+let currentMessageContext = null;
 
 // DOM Elements
 const views = {
@@ -270,6 +271,8 @@ if (navLinks.howItWorks) navLinks.howItWorks.addEventListener('click', (e) => { 
 document.getElementById('btn-goto-new').addEventListener('click', () => showView('newDeal'));
 document.getElementById('btn-back-new').addEventListener('click', () => showView('newDeal'));
 document.getElementById('btn-back-memory').addEventListener('click', () => showView('dealMemory'));
+const btnHowToNewDeal = document.getElementById('btn-how-to-new-deal');
+if (btnHowToNewDeal) btnHowToNewDeal.addEventListener('click', () => showView('newDeal'));
 
 // Breadcrumb listeners
 const bcPreflightDash = document.getElementById('bc-preflight-dashboard');
@@ -432,11 +435,44 @@ async function loadDeal(id) {
     }
 }
 
+const renderRevisionsList = (elementId, revisions) => {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.innerHTML = '';
+    if (!revisions || revisions.length === 0) {
+        el.innerHTML = '<li style="color: var(--text-secondary); font-size: 0.9rem; list-style: none;"><em>Versión base inicial v1.0 (Sin revisiones previas)</em></li>';
+        return;
+    }
+    revisions.forEach(rev => {
+        const li = document.createElement('li');
+        li.className = 'revision-item';
+        const dateStr = formatDate(rev.timestamp);
+        const changedListHtml = (rev.changed_items && rev.changed_items.length > 0)
+            ? `<ul style="margin-top: 0.35rem; padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary);">${rev.changed_items.map(item => `<li>${item}</li>`).join('')}</ul>`
+            : '';
+        li.innerHTML = `
+            <div class="revision-header">
+                <span class="version-badge">v${rev.version}</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">${dateStr}</span>
+            </div>
+            <strong style="font-size: 0.9rem; color: var(--text-primary);">${rev.summary || rev.action}</strong>
+            ${changedListHtml}
+        `;
+        el.appendChild(li);
+    });
+};
+
 function renderDealMemory(deal) {
     const memTitle = (deal.project && deal.project.title && deal.project.title.trim()) || 
                      (deal.project && deal.project.description && deal.project.description.trim()) || 
                      'Proyecto sin título';
     document.getElementById('mem-title').textContent = memTitle;
+    
+    // Version badge
+    const versionBadge = document.getElementById('mem-version-badge');
+    if (versionBadge) {
+        versionBadge.textContent = `v${deal.version || '1.0'}`;
+    }
     
     // Breadcrumb title
     const bcTitle = document.getElementById('bc-mem-title');
@@ -482,6 +518,7 @@ function renderDealMemory(deal) {
     
     populateList('mem-included', deal.scope.deliverables);
     populateList('mem-excluded', deal.scope.exclusions);
+    renderRevisionsList('mem-revisions-list', deal.revisions);
     
     document.getElementById('msg-content').value = '';
 }
@@ -602,6 +639,13 @@ document.getElementById('btn-analyze-msg').addEventListener('click', async () =>
     
     if (!content) return showError('Por favor, ingresá el mensaje del cliente');
     
+    currentMessageContext = {
+        content,
+        objective,
+        tone,
+        strategy_mode: null
+    };
+    
     showLoading('Analizando cambio de alcance y estrategia...');
     try {
         const res = await fetch(`/api/deals/${currentDealId}/analyze_message`, {
@@ -630,6 +674,12 @@ function renderAnalysis(intelligence) {
     const intent = intelligence.message_analysis.intent;
     const strategy = intelligence.strategy;
     const response = intelligence.response;
+    
+    // Save last intelligence in context
+    if (currentMessageContext) {
+        currentMessageContext.lastIntelligence = intelligence;
+        currentMessageContext.strategy_mode = strategy.strategy_mode || null;
+    }
     
     // Populate Context Banner in Scope Guard
     if (currentDeal) {
@@ -698,6 +748,17 @@ function renderAnalysis(intelligence) {
     populateList('diff-unchanged', guard.unchanged);
     toggleSection('section-unchanged', guard.unchanged);
     
+    // Strategy Selector UI State
+    const activeMode = strategy.strategy_mode || (currentMessageContext && currentMessageContext.strategy_mode);
+    document.querySelectorAll('.btn-strategy').forEach(btn => {
+        const btnMode = btn.getAttribute('data-mode');
+        if (btnMode === activeMode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
     // Strategy
     document.getElementById('resp-intent').textContent = intentMap[intent.primary] || intent.primary;
     document.getElementById('resp-strategy').textContent = strategy.recommended_action;
@@ -712,6 +773,8 @@ function renderAnalysis(intelligence) {
     // Reset review UI state
     document.getElementById('review-actions').classList.remove('hidden');
     document.getElementById('review-status-msg').classList.add('hidden');
+    const acceptChangeBox = document.getElementById('accept-change-box');
+    if (acceptChangeBox) acceptChangeBox.classList.add('hidden');
     draftTextarea.disabled = false;
     
     if (response.requires_review) {
@@ -743,6 +806,12 @@ async function submitReview(status) {
         statusMsg.style.color = 'white';
         document.getElementById('resp-draft').disabled = true;
         
+        // If approved, reveal the "Cliente aceptó el cambio" option (#4)
+        if (status === 'approved') {
+            const acceptChangeBox = document.getElementById('accept-change-box');
+            if (acceptChangeBox) acceptChangeBox.classList.remove('hidden');
+        }
+        
         showSuccess(status === 'approved' ? '✓ Respuesta aprobada y guardada' : '✓ Respuesta rechazada');
     } catch (err) {
         showError(err.message);
@@ -753,6 +822,143 @@ async function submitReview(status) {
 
 document.getElementById('btn-approve-response').addEventListener('click', () => submitReview('approved'));
 document.getElementById('btn-reject-response').addEventListener('click', () => submitReview('rejected'));
+
+// Strategy Selector Listeners (#3)
+document.querySelectorAll('.btn-strategy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const mode = btn.getAttribute('data-mode');
+        if (!currentDealId || !currentMessageContext || !currentMessageContext.content) {
+            return showError('Primero debes analizar un mensaje');
+        }
+        
+        const modeLabels = {
+            'upsell': 'Upsell / Fase 2',
+            'tradeoff': 'Trade-off',
+            'firm_boundary': 'Límite firme'
+        };
+        
+        showLoading(`Regenerando estrategia [${modeLabels[mode] || mode}]...`);
+        try {
+            const res = await fetch(`/api/deals/${currentDealId}/analyze_message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sender: 'client',
+                    content: currentMessageContext.content,
+                    objective: currentMessageContext.objective,
+                    tone: currentMessageContext.tone,
+                    strategy_mode: mode
+                })
+            });
+            
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || 'Error al actualizar estrategia');
+            }
+            
+            const intelligence = await res.json();
+            currentMessageContext.strategy_mode = mode;
+            renderAnalysis(intelligence);
+            showSuccess(`✓ Estrategia aplicada: ${modeLabels[mode] || mode}`);
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            hideLoading();
+        }
+    });
+});
+
+// Deal Versioning Modal Listeners (#4)
+const modalApplyRevision = document.getElementById('modal-apply-revision');
+const btnOpenAcceptModal = document.getElementById('btn-open-accept-change-modal');
+const btnCancelRevision = document.getElementById('btn-cancel-revision');
+const btnConfirmRevision = document.getElementById('btn-confirm-revision');
+
+if (btnOpenAcceptModal) {
+    btnOpenAcceptModal.addEventListener('click', () => {
+        if (!currentMessageContext || !currentMessageContext.lastIntelligence) return;
+        const guard = currentMessageContext.lastIntelligence.message_analysis.scope_guard;
+        const addedItems = (guard.added || []).join(', ');
+        
+        const delivInput = document.getElementById('rev-added-deliverables');
+        const budgetInput = document.getElementById('rev-new-budget');
+        const deadlineInput = document.getElementById('rev-new-deadline');
+        const summaryInput = document.getElementById('rev-summary');
+        
+        if (delivInput) delivInput.value = addedItems;
+        if (budgetInput && currentDeal && currentDeal.commercial) {
+            budgetInput.value = currentDeal.commercial.budget || '';
+        }
+        if (deadlineInput && currentDeal && currentDeal.timeline) {
+            deadlineInput.value = currentDeal.timeline.deadline || '';
+        }
+        if (summaryInput) {
+            summaryInput.value = addedItems ? `Cliente aprobó incorporación de: ${addedItems}` : 'Cliente aceptó cambio de alcance';
+        }
+        
+        if (modalApplyRevision) modalApplyRevision.classList.remove('hidden');
+    });
+}
+
+if (btnCancelRevision) {
+    btnCancelRevision.addEventListener('click', () => {
+        if (modalApplyRevision) modalApplyRevision.classList.add('hidden');
+    });
+}
+
+if (btnConfirmRevision) {
+    btnConfirmRevision.addEventListener('click', async () => {
+        if (!currentDealId) return;
+        
+        const addedRaw = document.getElementById('rev-added-deliverables') ? document.getElementById('rev-added-deliverables').value : '';
+        const budgetRaw = document.getElementById('rev-new-budget') ? document.getElementById('rev-new-budget').value : '';
+        const deadlineRaw = document.getElementById('rev-new-deadline') ? document.getElementById('rev-new-deadline').value : '';
+        const summary = document.getElementById('rev-summary') ? document.getElementById('rev-summary').value.trim() : '';
+        
+        const addedDeliverables = addedRaw
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+            
+        const payload = {
+            action: 'client_accepted_change',
+            summary: summary || undefined,
+            added_deliverables: addedDeliverables,
+            removed_exclusions: addedDeliverables
+        };
+        
+        if (budgetRaw && !isNaN(parseFloat(budgetRaw))) {
+            payload.budget = parseFloat(budgetRaw);
+        }
+        if (deadlineRaw && deadlineRaw.trim().length > 0) {
+            payload.deadline = deadlineRaw.trim();
+        }
+        
+        showLoading('Actualizando Memoria del proyecto...');
+        try {
+            const res = await fetch(`/api/deals/${currentDealId}/revisions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || 'Error al actualizar memoria del proyecto');
+            }
+            
+            currentDeal = await res.json();
+            if (modalApplyRevision) modalApplyRevision.classList.add('hidden');
+            showSuccess(`✓ Proyecto actualizado exitosamente a v${currentDeal.version || '1.1'}`);
+            renderDealMemory(currentDeal);
+            showView('dealMemory');
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            hideLoading();
+        }
+    });
+}
 
 // Init
 showView('dashboard');

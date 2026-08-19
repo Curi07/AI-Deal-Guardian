@@ -1,9 +1,9 @@
 import logging
 from fastapi import APIRouter, HTTPException, Path
-from typing import Dict, Any, Optional
-from pydantic import BaseModel
-from app.schemas.deal import Deal, ReviewStatus, ProjectStatus
-from app.schemas.analysis import ResponseIntelligence, ScopeDiff
+from typing import Dict, Any, Optional, List
+from pydantic import BaseModel, Field
+from app.schemas.deal import Deal, DealRevision, ReviewStatus, ProjectStatus
+from app.schemas.analysis import ResponseIntelligence, ScopeDiff, StrategyMode
 from app.services.extraction import AnalyzeRequest, ExtractionService
 from app.llm.provider import LLMProvider, OpenAIProvider, MockLLMProvider, GeminiProvider
 from app.db.database import DealRepository
@@ -33,6 +33,7 @@ class MessagePayload(BaseModel):
     content: str
     objective: Optional[str] = None
     tone: Optional[str] = "professional"
+    strategy_mode: Optional[StrategyMode] = None
 
 class ReviewPayload(BaseModel):
     status: ReviewStatus
@@ -40,6 +41,16 @@ class ReviewPayload(BaseModel):
 
 class UpdateStatusPayload(BaseModel):
     status: ProjectStatus
+
+class ApplyRevisionPayload(BaseModel):
+    action: str = "client_accepted_change"
+    summary: Optional[str] = None
+    added_deliverables: List[str] = Field(default_factory=list)
+    removed_deliverables: List[str] = Field(default_factory=list)
+    removed_exclusions: List[str] = Field(default_factory=list)
+    added_exclusions: List[str] = Field(default_factory=list)
+    budget: Optional[float] = None
+    deadline: Optional[str] = None
 
 @router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_deal(request: AnalyzeRequest):
@@ -128,7 +139,8 @@ async def analyze_message(deal_id: str, payload: MessagePayload):
             deal=deal, 
             message=payload.content, 
             objective=payload.objective, 
-            tone=payload.tone
+            tone=payload.tone,
+            strategy_mode=payload.strategy_mode
         )
         return analysis
     except ValueError as ve:
@@ -171,6 +183,34 @@ async def delete_deal(deal_id: str):
     except Exception as e:
         logger.error(f"[API /delete] Error deleting deal {deal_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{deal_id}/revisions", response_model=Deal)
+async def apply_deal_revision(deal_id: str, payload: ApplyRevisionPayload):
+    try:
+        updated_deal = repo.apply_revision(
+            deal_id=deal_id,
+            added_deliverables=payload.added_deliverables,
+            removed_deliverables=payload.removed_deliverables,
+            removed_exclusions=payload.removed_exclusions,
+            added_exclusions=payload.added_exclusions,
+            budget=payload.budget,
+            deadline=payload.deadline,
+            action=payload.action,
+            summary=payload.summary
+        )
+        return updated_deal
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"[API /revisions] Error applying revision for deal {deal_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{deal_id}/revisions", response_model=list[DealRevision])
+async def get_deal_revisions(deal_id: str):
+    deal = repo.get_deal(deal_id)
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return deal.revisions
 
 
 

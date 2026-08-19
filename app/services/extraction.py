@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any, Dict, List
 from app.llm.provider import LLMProvider
 from app.schemas.deal import Deal
 from app.rules.engine import RuleEngine
@@ -113,8 +113,15 @@ Analyze the scope diff according to the schema.
         )
         return scope_diff
 
-    def analyze_contextual_message(self, deal: Deal, message: str, objective: str, tone: str = "professional"):
-        from app.schemas.analysis import MessageAnalysis, Strategy, ResponseDraft, ResponseIntelligence, IntentAnalysis, DealContextSummary
+    def analyze_contextual_message(
+        self, 
+        deal: Deal, 
+        message: str, 
+        objective: str, 
+        tone: str = "professional",
+        strategy_mode: Optional[Any] = None
+    ):
+        from app.schemas.analysis import MessageAnalysis, Strategy, StrategyMode, ResponseDraft, ResponseIntelligence, IntentAnalysis, DealContextSummary
         from pydantic import BaseModel
         import json
         
@@ -212,14 +219,57 @@ Extract the intent and relevant context. Remember: all relevant_* fields must be
             response: ResponseDraft
             
         stage2_system_prompt = """
-You are AI Deal Guardian. Based on a structured analysis of a client message and the user's objective, generate a recommended strategy and a draft response.
+You are AI Deal Guardian. Based on a structured analysis of a client message, the user's objective, and the selected commercial strategy, generate a recommended strategy and a draft response.
 
 CRITICAL INSTRUCTIONS:
-1. The user's objective is AUTHORITATIVE. Generate a strategy that fulfills the objective (e.g., if objective is 'defend_price', do not propose a discount).
-2. The generated response must be SURGICAL: one clear objective, no unnecessary info, grounded in the Deal.
+1. The user's objective and selected commercial strategy are AUTHORITATIVE. The LLM must strictly follow the chosen strategy mode.
+2. The generated response must be SURGICAL: one clear objective, no unnecessary info, grounded in the Deal Memory.
 3. NO HALLUCINATION: Never invent prices, deadlines, deliverables, or agreements. If missing, recommend asking for clarification.
 4. Do NOT silently resolve conflicts with confirmed decisions. Recommend clarification/renegotiation.
+5. The strategy choice must directly govern recommended_action, reasoning, key_points, and response.draft.
 """
+
+        strategy_mode_guidelines = ""
+        resolved_strategy_mode: Optional[StrategyMode] = None
+        if strategy_mode:
+            if isinstance(strategy_mode, StrategyMode):
+                resolved_strategy_mode = strategy_mode
+            else:
+                try:
+                    resolved_strategy_mode = StrategyMode(str(strategy_mode).lower())
+                except ValueError:
+                    resolved_strategy_mode = None
+
+        if resolved_strategy_mode == StrategyMode.UPSELL:
+            strategy_mode_guidelines = """
+=== SELECTED COMMERCIAL STRATEGY: UPSELL / FASE 2 ===
+The user explicitly selected UPSELL / FASE 2.
+Directives:
+- Accept the idea as valuable additional work.
+- Propose incorporating it as a new phase, add-on module, or future milestone.
+- Explicitly state that it requires additional budget and an adjusted timeline.
+- DO NOT absorb it into the current fixed budget or timeline.
+"""
+        elif resolved_strategy_mode == StrategyMode.TRADEOFF:
+            strategy_mode_guidelines = """
+=== SELECTED COMMERCIAL STRATEGY: TRADE-OFF ===
+The user explicitly selected TRADE-OFF.
+Directives:
+- Accept the new request ONLY by compensating with a reduction, postponement, or substitution of an existing deliverable.
+- Propose a scope swap to protect the current budget and deadline.
+- Explicitly ask the client which existing deliverable they want to remove or simplify.
+"""
+        elif resolved_strategy_mode == StrategyMode.FIRM_BOUNDARY:
+            strategy_mode_guidelines = """
+=== SELECTED COMMERCIAL STRATEGY: LÍMITE FIRME (FIRM BOUNDARY) ===
+The user explicitly selected FIRM BOUNDARY.
+Directives:
+- Maintain the agreed scope, budget, and timeline firmly and professionally.
+- Politely decline adding new deliverables to the current delivery.
+- Re-affirm commitment to the existing agreement without adding extra scope.
+- DO NOT offer discounts or unsolicited phase proposals.
+"""
+
         stage2_user_prompt = f"""
 === STRUCTURED ANALYSIS ===
 {message_analysis.model_dump_json(indent=2)}
@@ -229,14 +279,17 @@ CRITICAL INSTRUCTIONS:
 
 === REQUESTED TONE ===
 {tone}
-
-Generate the strategy and draft response based on the structured analysis, matching the objective and tone.
+{strategy_mode_guidelines}
+Generate the strategy and draft response based on the structured analysis, strictly adhering to the selected strategy mode, objective, and tone.
 """
         stage2_result = self.provider.generate_structured(
             system_prompt=stage2_system_prompt,
             user_prompt=stage2_user_prompt,
             response_model=Stage2Result
         )
+        
+        if resolved_strategy_mode:
+            stage2_result.strategy.strategy_mode = resolved_strategy_mode
         
         intelligence = ResponseIntelligence(
             message_analysis=message_analysis,
